@@ -27,6 +27,22 @@ Esta é uma POC de aprendizado, rodando numa VPS Ubuntu, com deploy manual. Iten
 produção (HTTPS, CI/CD, hardening) estão fora do escopo atual — ver
 [known-issues](./docs/ai-context/known-issues.md).
 
+## POC × Produção (alvo)
+
+Esta documentação cobre **dois planos**: o que **foi feito** (a POC) e o que
+**queremos na prática** (o sistema oficial multi-tenant).
+
+- **Feito (POC):** multi-tenancy de banco único com **implementação própria**
+  (trait `BelongsToTenant`, middleware de subdomínio). Serviu para validar o
+  conceito. Ver [ARCHITECTURE.md](./ARCHITECTURE.md).
+- **Alvo (produção):** um **novo repositório greenfield** que junta o domínio do
+  **sistema oficial single-user de hoje** com a tenancy validada aqui, usando o
+  pacote **`stancl/tenancy`** (modo single-database, subdomínio) + um **sistema de
+  controle próprio** de tenants/licenças. Ver
+  [arquitetura alvo](./docs/architecture/target-production.md),
+  [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) e o
+  [roadmap](./docs/architecture/migration-single-user-to-multitenant.md).
+
 ## Setup rápido
 
 Pré-requisitos na máquina: PHP 8.4, Composer, MySQL 8, Nginx.
@@ -51,17 +67,27 @@ Acesso em desenvolvimento (sem DNS): adicione ao seu `hosts` local
 
 ## Documentação principal
 
+**Feito (POC):**
+
 | Documento | Descrição |
 |-----------|-----------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Visão geral do sistema e do multi-tenant |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Visão geral do sistema (POC) e do multi-tenant |
 | [GLOSSARY.md](./GLOSSARY.md) | Termos de domínio |
 | [docs/features/multi-tenancy.md](./docs/features/multi-tenancy.md) | Como o multi-tenant funciona |
 | [docs/features/authentication.md](./docs/features/authentication.md) | Login isolado por tenant |
-| [docs/architecture/adr/ADR-001-single-database-multitenancy.md](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) | Decisão da estratégia de tenancy |
 | [docs/ai-context/conventions.md](./docs/ai-context/conventions.md) | Convenções de código |
 | [docs/ai-context/known-issues.md](./docs/ai-context/known-issues.md) | Limitações conhecidas |
 | [docs/ops/vps-pending-steps.md](./docs/ops/vps-pending-steps.md) | Runbook: passos pendentes para rodar na VPS |
 | [docs/ai-context/FULL_CONTEXT.md](./docs/ai-context/FULL_CONTEXT.md) | Contexto agregado para IAs |
+
+**Alvo (produção):**
+
+| Documento | Descrição |
+|-----------|-----------|
+| [docs/architecture/adr/ADR-001-single-database-multitenancy.md](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) | Decisão: stancl/tenancy, single-database, subdomínio |
+| [docs/architecture/target-production.md](./docs/architecture/target-production.md) | Arquitetura alvo + mapa POC→produção |
+| [docs/features/tenant-license-management.md](./docs/features/tenant-license-management.md) | Sistema de controle de tenants e licenças |
+| [docs/architecture/migration-single-user-to-multitenant.md](./docs/architecture/migration-single-user-to-multitenant.md) | Roadmap: single-user → multi-tenant (novo repo) |
 
 ## Stack
 

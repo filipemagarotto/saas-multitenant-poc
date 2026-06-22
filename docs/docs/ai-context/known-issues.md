@@ -12,6 +12,11 @@ tags: [known-issues, tech-debt]
 > Para IAs: ao sugerir mudanças, verifique se não conflitam com as limitações abaixo.
 > Esta é uma POC — vários itens de produção são omissões propositais desta fase.
 
+> **POC × Produção:** a implementação de tenancy deste repo é **própria** e serve
+> só para validar o conceito. O sistema oficial usará **`stancl/tenancy`**
+> (ver [ADR-001](../architecture/adr/ADR-001-single-database-multitenancy.md)) num
+> **novo repo greenfield** — **não** porte a trait/middleware desta POC para lá.
+
 ## Dívidas técnicas ativas
 
 | ID | Descrição | Impacto | Workaround / nota |

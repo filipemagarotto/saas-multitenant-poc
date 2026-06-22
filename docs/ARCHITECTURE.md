@@ -9,6 +9,13 @@ tags: [architecture, system-design, multi-tenancy]
 
 # Arquitetura do Sistema
 
+> **Escopo deste documento: a POC (o que foi FEITO).** Descreve a implementação
+> **própria** de multi-tenancy usada para validar o conceito. A arquitetura
+> **alvo de produção** (com `stancl/tenancy` + control plane de licenças) está em
+> [docs/architecture/target-production.md](./docs/architecture/target-production.md)
+> e a decisão em
+> [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md).
+
 ## Visão geral
 
 Aplicação Laravel monolítica servida por Nginx + PHP-FPM, com persistência em um
