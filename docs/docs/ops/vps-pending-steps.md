@@ -35,7 +35,7 @@ tags: [ops, deploy, runbook, ai-context]
 
 ## ⬜ PENDENTE — Login isolado por tenant
 
-- **Commit:** `(uncommitted — preencher com o hash ao commitar)`
+- **Commit:** `312820c`
 - **Branch:** `main`
 - **Status:** ⬜ PENDENTE
 - **Registrado em:** 2026-06-22
