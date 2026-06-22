@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => \App\Http\Middleware\IdentifyTenant::class,
         ]);
+
+        // Visitante nao autenticado vai para /login (caminho relativo: mantem
+        // o subdominio do tenant atual, sem precisar do parametro {tenant}).
+        $middleware->redirectGuestsTo('/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

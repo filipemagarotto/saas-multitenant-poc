@@ -68,11 +68,16 @@ O isolamento é montado em 4 peças (ver [feature](./docs/features/multi-tenancy
 1. **`Tenancy` (singleton)** — guarda o "tenant atual" durante a requisição.
 2. **`IdentifyTenant` (middleware)** — lê o subdomínio, encontra o tenant pelo
    `slug` e o define como atual (ou retorna 404).
-3. **`BelongsToTenant` (trait)** — aplicado em models como `Pet`. Adiciona um
-   *global scope* que filtra toda consulta pelo `tenant_id` atual e preenche
-   `tenant_id` automaticamente ao criar registros.
+3. **`BelongsToTenant` (trait)** — aplicado em models como `Pet` e `User`.
+   Adiciona um *global scope* que filtra toda consulta pelo `tenant_id` atual e
+   preenche `tenant_id` automaticamente ao criar registros.
 4. **Grupos de rota por domínio** — rotas centrais em `tcsystem.shop`; rotas de
    tenant em `{tenant}.tcsystem.shop` (protegidas pelo middleware).
+5. **Autenticação por tenant** — como `User` também usa `BelongsToTenant`, o
+   login (`Auth::attempt`) e a resolução do usuário logado já vêm filtrados pelo
+   tenant atual: um usuário do `cliente1` não autentica no `cliente2`. As rotas
+   de dados ficam atrás do middleware `auth`. Ver
+   [feature](./docs/features/authentication.md).
 
 ## Fluxo de uma requisição de tenant
 
@@ -99,6 +104,9 @@ principal: [ADR-001 — Banco único multi-tenant](./docs/architecture/adr/ADR-0
   processos PHP-FPM são reaproveitados entre requisições e isso vazaria dados.
 - ❌ Não commitar `.env` nem segredos — o `.env` está no `.gitignore`.
 - ❌ Não criar server block por cliente no Nginx — o wildcard já cobre todos.
+- ❌ Não definir `SESSION_DOMAIN=.tcsystem.shop` — isso compartilharia o cookie de
+  sessão entre subdomínios. O cookie deve ficar host-only (`SESSION_DOMAIN` vazio)
+  para que a sessão de um tenant não trafegue para outro.
 
 ## Limitações conhecidas
 

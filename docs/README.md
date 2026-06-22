@@ -39,8 +39,12 @@ cp .env.example .env
 php artisan key:generate
 # Ajuste DB_* e TENANT_CENTRAL_DOMAIN no .env, então:
 php artisan migrate
-php artisan tinker   # criar tenants de exemplo (ver docs/features/multi-tenancy.md)
+php artisan db:seed  # cria tenants, usuários admin e pets de exemplo
 ```
+
+Usuários de exemplo criados pelo seed (senha: `password`):
+`admin@cliente1.test` (cliente1) e `admin@cliente2.test` (cliente2). Ver
+[docs/features/authentication.md](./docs/features/authentication.md).
 
 Acesso em desenvolvimento (sem DNS): adicione ao seu `hosts` local
 `IP_DA_VPS cliente1.tcsystem.shop` e acesse `http://cliente1.tcsystem.shop/pets`.
@@ -52,9 +56,11 @@ Acesso em desenvolvimento (sem DNS): adicione ao seu `hosts` local
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Visão geral do sistema e do multi-tenant |
 | [GLOSSARY.md](./GLOSSARY.md) | Termos de domínio |
 | [docs/features/multi-tenancy.md](./docs/features/multi-tenancy.md) | Como o multi-tenant funciona |
+| [docs/features/authentication.md](./docs/features/authentication.md) | Login isolado por tenant |
 | [docs/architecture/adr/ADR-001-single-database-multitenancy.md](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) | Decisão da estratégia de tenancy |
 | [docs/ai-context/conventions.md](./docs/ai-context/conventions.md) | Convenções de código |
 | [docs/ai-context/known-issues.md](./docs/ai-context/known-issues.md) | Limitações conhecidas |
+| [docs/ops/vps-pending-steps.md](./docs/ops/vps-pending-steps.md) | Runbook: passos pendentes para rodar na VPS |
 | [docs/ai-context/FULL_CONTEXT.md](./docs/ai-context/FULL_CONTEXT.md) | Contexto agregado para IAs |
 
 ## Stack
