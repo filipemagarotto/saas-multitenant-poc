@@ -10,7 +10,7 @@ tags: [feature, spec, control-plane, licensing, multi-tenancy, target]
 # Feature: Gestão de Tenants e Licenças (Control Plane)
 
 > **Status: draft / o que QUEREMOS na prática.** Ainda não implementado. Faz parte
-> da [arquitetura alvo de produção](../architecture/target-production.md).
+> da [arquitetura do sistema](../../ARCHITECTURE.md).
 
 ## Objetivo
 
@@ -69,28 +69,32 @@ direto no banco.
 | Funcionalidade fora do plano | 403 / recurso oculto conforme as features da licença |
 | Tenant sem licença (recém-criado) | Estado "pendente" até o control plane definir a licença |
 
-## Modelo de dados (proposto — sujeito às decisões em aberto)
+## Modelo de dados (proposto — PostgreSQL; sujeito às decisões em aberto)
 
 ```sql
--- Vinculadas ao tenant (banco único, discriminador tenant_id).
 CREATE TABLE plans (
-  id           BIGINT PRIMARY KEY,
-  name         VARCHAR(255) NOT NULL,         -- ex.: "Básico", "Pro"
-  features     JSON NOT NULL,                 -- funcionalidades habilitadas
-  limits       JSON NULL                      -- ex.: { "max_users": 10 }
+  id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name      VARCHAR(255) NOT NULL,          -- ex.: "Básico", "Pro"
+  features  JSONB NOT NULL,                 -- funcionalidades habilitadas
+  limits    JSONB                           -- ex.: { "max_users": 10 }
 );
 
 CREATE TABLE licenses (
-  id           BIGINT PRIMARY KEY,
-  tenant_id    BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  plan_id      BIGINT NOT NULL REFERENCES plans(id),
-  status       ENUM('active','suspended','expired') NOT NULL DEFAULT 'active',
-  starts_at    TIMESTAMP NULL,
-  expires_at   TIMESTAMP NULL,
-  created_at   TIMESTAMP NULL,
-  updated_at   TIMESTAMP NULL
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tenant_id  BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  plan_id    BIGINT NOT NULL REFERENCES plans(id),
+  status     VARCHAR(20) NOT NULL DEFAULT 'active'
+             CHECK (status IN ('active','suspended','expired')),
+  starts_at  TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
 );
 ```
+
+> Onde essas tabelas vivem depende de onde o control plane viver (decisão em
+> aberto): no mesmo banco compartilhado do app ou num banco próprio do control
+> plane consultado via API.
 
 ## Métricas de sucesso
 

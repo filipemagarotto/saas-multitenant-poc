@@ -1,68 +1,73 @@
 ---
 title: Convenções de Código e Projeto
-status: stable
+status: draft
 owner: filipe-magarotto
-last_updated: 2026-06-21
+last_updated: 2026-06-23
 ai_friendly: true
-tags: [conventions, standards, laravel]
+tags: [conventions, standards, laravel, php]
 ---
 
 # Convenções
 
+> Convenções do sistema oficial (Laravel/PHP + `stancl/tenancy` + PostgreSQL).
+> Ajuste conforme o repositório oficial evoluir.
+
+## Linguagem e estilo
+
+- **PHP 8.x / Laravel**, seguindo **PSR-12**.
+- Formatação automática com **Laravel Pint** (`vendor/bin/pint`).
+- Tipos sempre que possível (parâmetros, retornos, propriedades tipadas).
+- `declare(strict_types=1)` quando o projeto adotar (definir no setup oficial).
+
 ## Nomenclatura
 
-- **Classes / Models:** `PascalCase` (`Pet`, `Tenant`, `IdentifyTenant`)
-- **Métodos / variáveis:** `camelCase`
-- **Tabelas de banco:** `snake_case`, plural (`pets`, `tenants`)
-- **Colunas:** `snake_case` (`tenant_id`, `created_at`)
-- **Rotas / slugs:** `kebab-case` / minúsculo (`cliente1`)
-- **Arquivos de config:** `snake_case.php` em `config/`
+- **Classes / Models / Enums:** `PascalCase` (`Tenant`, `License`).
+- **Métodos / variáveis:** `camelCase`.
+- **Constantes:** `UPPER_SNAKE_CASE`.
+- **Tabelas:** `snake_case`, plural (`tenants`, `licenses`).
+- **Colunas:** `snake_case` (`tenant_id`, `created_at`).
+- **Rotas nomeadas:** `recurso.acao` (`pets.index`).
 
-## Estrutura relevante do projeto
+## Multi-tenancy (regra de ouro)
 
-```
-app/
-  Models/                 # Pet, Tenant, User
-  Http/Middleware/        # IdentifyTenant
-  Tenancy/                # Tenancy (singleton), BelongsToTenant (trait)
-  Providers/              # AppServiceProvider (registra o singleton Tenancy)
-config/
-  tenancy.php             # central_domain
-database/migrations/      # create_tenants, add_tenant_id_to_pets, ...
-routes/
-  web.php                 # grupos central e tenant
-docs/                     # esta documentação
-```
+- Todo model com **dados de cliente** usa o trait `BelongsToTenant` do
+  `stancl/tenancy`. Sem exceção — é o que garante o isolamento.
+- **`tenant_id`** é `NOT NULL` em tabelas de tenant.
+- Lógica que roda **fora** do contexto de uma requisição de tenant (jobs, comandos
+  artisan) deve **inicializar a tenancy** explicitamente antes de tocar em dados de
+  tenant.
+- Rotas: separar claramente **central** (não-tenant) de **tenant**
+  (`{tenant}.dominio`).
+- Nunca acessar/alterar tenants ou licenças direto no banco — usar o control plane.
 
-## Multi-tenancy (regras de ouro)
+## Banco de dados (PostgreSQL + PgBouncer)
 
-- Todo model com dados de cliente DEVE usar o trait `BelongsToTenant`.
-- O tenant atual é acessado via `app(App\Tenancy\Tenancy::class)`.
-- A leitura do tenant nas closures do trait acontece **em tempo de consulta**,
-  nunca no boot (segurança em PHP-FPM com workers reaproveitados).
-- Rotas de tenant ficam no grupo `Route::domain('{tenant}.'.$central)` com o
-  middleware `tenant`.
+- Migrations versionadas (`database/migrations`); nada de DDL manual em produção.
+- Cuidado com recursos de **sessão** do Postgres sob PgBouncer em modo
+  `transaction` (ver [ADR-002](../architecture/adr/ADR-002-postgres-pgbouncer.md)):
+  evitar dependência de estado de sessão (prepared statements server-side, `SET`,
+  advisory locks de sessão) sem validar.
+- Toda query de dados de cliente deve passar pelo escopo de tenant (não rodar
+  query "crua" que ignore o `tenant_id`).
 
-## Banco de dados
+## Testes
 
-- Migrations para toda mudança de schema (nunca alterar o banco "na mão").
-- Atenção à **ordem das migrations**: quando o timestamp empata, o Laravel ordena
-  por nome do arquivo. FKs exigem que a tabela referenciada seja criada antes.
-- Charset `utf8mb4` (padrão das tabelas).
-- A aplicação usa `saas_poc_user`, nunca o root.
+- **Pest** ou **PHPUnit** (definir no setup oficial); testes de feature por tenant.
+- Cobrir **isolamento entre tenants** como cenário de primeira classe (um tenant
+  não enxerga/loga em dados de outro).
+- Não usar dados de produção em testes.
 
-## Git e commits
+## Git e PRs
 
-- **Conventional Commits** (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`).
-- Branch de trabalho: `tipo/descricao-curta`.
-- `main` = estável; `develop` = integração (ver estratégia de branches do repo).
-- **Nunca** commitar `.env`, senhas ou chaves. Confirmar `.gitignore` antes de
-  qualquer push inicial.
+- Commits: **Conventional Commits** (`feat:`, `fix:`, `docs:`, `chore:`).
+- Branch: `type/ticket-descricao` (ex.: `feat/PLT-123-licenca-tenant`).
+- PRs precisam de ao menos 1 aprovação + CI verde.
 
 ## O que NÃO fazer
 
-- ❌ Consultar dados de cliente sem o trait `BelongsToTenant`.
-- ❌ Usar o root do MySQL na aplicação.
-- ❌ Hardcode de segredos — usar `.env` / `config()`.
-- ❌ Editar `docs/ai-context/FULL_CONTEXT.md` à mão (é gerado por script).
-- ❌ Editar o banco fora de migrations.
+- ❌ Query de dados de cliente sem o escopo de tenant.
+- ❌ Model de tenant sem o trait `BelongsToTenant`.
+- ❌ Secrets hardcoded — usar `.env` / gerenciador de segredos.
+- ❌ `SESSION_DOMAIN` no domínio raiz (vazaria sessão entre tenants).
+- ❌ Portar a implementação própria da POC (ver
+  [lições da POC](./poc-learnings.md)).

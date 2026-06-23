@@ -1,107 +1,60 @@
 ---
 title: README
-status: stable
+status: draft
 owner: filipe-magarotto
-last_updated: 2026-06-21
+last_updated: 2026-06-23
 ai_friendly: true
-tags: [overview, onboarding]
+tags: [overview, onboarding, multi-tenancy]
 ---
 
-# SaaS Multitenant POC
+# Sistema Multi-tenant — Documentação
 
-> Prova de conceito de um SaaS multi-tenant em Laravel, com isolamento de dados
-> por tenant identificado via subdomínio.
+> Documentação do sistema oficial **SaaS multi-tenant** em Laravel. O conceito foi
+> validado numa POC; aqui fica a arquitetura e as decisões para o produto real.
 
 ## O que é
 
-Este projeto é uma **prova de conceito (POC)** de uma aplicação SaaS multi-tenant
-construída em Laravel. O objetivo é validar a arquitetura de **banco único com
-isolamento por `tenant_id`**, onde cada cliente (tenant) acessa a aplicação por um
-**subdomínio próprio** (ex.: `cliente1.tcsystem.shop`) e enxerga **apenas os seus
-próprios dados**.
+Uma aplicação **SaaS multi-tenant** onde cada cliente (tenant) acessa por um
+**subdomínio próprio** (ex.: `cliente.dominio`) e enxerga **apenas os seus
+dados**. O isolamento usa **banco de dados compartilhado** (uma base, separação
+por `tenant_id`) com o pacote **`stancl/tenancy`** (modo single-database). O banco
+é **PostgreSQL** atrás do pooler **PgBouncer**. Um **sistema de controle próprio**
+gerencia tenants e **licenças**.
 
-A entidade de exemplo usada para demonstrar o isolamento é `Pet` — cada tenant tem
-sua própria lista de pets, completamente isolada dos demais.
+## Pilares (decisões fixadas)
 
-Esta é uma POC de aprendizado, rodando numa VPS Ubuntu, com deploy manual. Itens de
-produção (HTTPS, CI/CD, hardening) estão fora do escopo atual — ver
-[known-issues](./docs/ai-context/known-issues.md).
+| Tema | Decisão | Referência |
+|------|---------|-----------|
+| Estratégia de tenancy | Banco único compartilhado (`tenant_id`) | [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) |
+| Framework de tenancy | `stancl/tenancy` (single-database) | [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) |
+| Identificação do tenant | Subdomínio | [multi-tenancy](./docs/features/multi-tenancy.md) |
+| Banco de dados | PostgreSQL + PgBouncer | [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) |
+| Gestão de tenants/licenças | Control plane próprio | [feature](./docs/features/tenant-license-management.md) |
 
-## POC × Produção (alvo)
-
-Esta documentação cobre **dois planos**: o que **foi feito** (a POC) e o que
-**queremos na prática** (o sistema oficial multi-tenant).
-
-- **Feito (POC):** multi-tenancy de banco único com **implementação própria**
-  (trait `BelongsToTenant`, middleware de subdomínio). Serviu para validar o
-  conceito. Ver [ARCHITECTURE.md](./ARCHITECTURE.md).
-- **Alvo (produção):** um **novo repositório greenfield** que junta o domínio do
-  **sistema oficial single-user de hoje** com a tenancy validada aqui, usando o
-  pacote **`stancl/tenancy`** (modo single-database, subdomínio) + um **sistema de
-  controle próprio** de tenants/licenças. Ver
-  [arquitetura alvo](./docs/architecture/target-production.md),
-  [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) e o
-  [roadmap](./docs/architecture/migration-single-user-to-multitenant.md).
-
-## Setup rápido
-
-Pré-requisitos na máquina: PHP 8.4, Composer, MySQL 8, Nginx.
-
-```bash
-git clone git@github.com:filipemagarotto/saas-multitenant-poc.git
-cd saas-multitenant-poc
-composer install
-cp .env.example .env
-php artisan key:generate
-# Ajuste DB_* e TENANT_CENTRAL_DOMAIN no .env, então:
-php artisan migrate
-php artisan db:seed  # cria tenants, usuários admin e pets de exemplo
-```
-
-Usuários de exemplo criados pelo seed (senha: `password`):
-`admin@cliente1.test` (cliente1) e `admin@cliente2.test` (cliente2). Ver
-[docs/features/authentication.md](./docs/features/authentication.md).
-
-Acesso em desenvolvimento (sem DNS): adicione ao seu `hosts` local
-`IP_DA_VPS cliente1.tcsystem.shop` e acesse `http://cliente1.tcsystem.shop/pets`.
-
-## Documentação principal
-
-**Feito (POC):**
+## Documentação
 
 | Documento | Descrição |
 |-----------|-----------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Visão geral do sistema (POC) e do multi-tenant |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Arquitetura do sistema |
 | [GLOSSARY.md](./GLOSSARY.md) | Termos de domínio |
 | [docs/features/multi-tenancy.md](./docs/features/multi-tenancy.md) | Como o multi-tenant funciona |
 | [docs/features/authentication.md](./docs/features/authentication.md) | Login isolado por tenant |
-| [docs/ai-context/conventions.md](./docs/ai-context/conventions.md) | Convenções de código |
-| [docs/ai-context/known-issues.md](./docs/ai-context/known-issues.md) | Limitações conhecidas |
-| [docs/ops/vps-pending-steps.md](./docs/ops/vps-pending-steps.md) | Runbook: passos pendentes para rodar na VPS |
-| [docs/ai-context/FULL_CONTEXT.md](./docs/ai-context/FULL_CONTEXT.md) | Contexto agregado para IAs |
-
-**Alvo (produção):**
-
-| Documento | Descrição |
-|-----------|-----------|
-| [docs/architecture/adr/ADR-001-single-database-multitenancy.md](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) | Decisão: stancl/tenancy, single-database, subdomínio |
-| [docs/architecture/target-production.md](./docs/architecture/target-production.md) | Arquitetura alvo + mapa POC→produção |
 | [docs/features/tenant-license-management.md](./docs/features/tenant-license-management.md) | Sistema de controle de tenants e licenças |
-| [docs/architecture/migration-single-user-to-multitenant.md](./docs/architecture/migration-single-user-to-multitenant.md) | Roadmap: single-user → multi-tenant (novo repo) |
+| [docs/architecture/adr/ADR-001-single-database-multitenancy.md](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) | Decisão: stancl/tenancy, single-database, subdomínio |
+| [docs/architecture/adr/ADR-002-postgres-pgbouncer.md](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) | Decisão: PostgreSQL + PgBouncer |
+| [docs/architecture/migration-single-user-to-multitenant.md](./docs/architecture/migration-single-user-to-multitenant.md) | Roadmap: single-user → multi-tenant |
+| [docs/ai-context/conventions.md](./docs/ai-context/conventions.md) | Convenções de código |
+| [docs/ai-context/known-issues.md](./docs/ai-context/known-issues.md) | Limitações, riscos e decisões em aberto |
+| [docs/ai-context/poc-learnings.md](./docs/ai-context/poc-learnings.md) | Lições da POC + mapa POC→produção |
 
-## Stack
+## Stack alvo
 
-- **Backend:** PHP 8.4, Laravel 13
-- **Banco:** MySQL 8.0 (banco único, isolamento por `tenant_id`)
-- **Web:** Nginx 1.24 + PHP-FPM 8.4
-- **SO:** Ubuntu 24.04 LTS (VPS)
-- **Versionamento:** Git + GitHub (deploy key SSH)
+- **Backend:** PHP / Laravel + `stancl/tenancy` (single-database)
+- **Banco:** PostgreSQL (banco único, isolamento por `tenant_id`) + PgBouncer
+- **Tenancy:** identificação por subdomínio
+- **Controle:** sistema próprio de tenants e licenças (control plane)
 
-## Ambiente atual (POC)
+## Decisões em aberto
 
-| Item | Valor |
-|------|-------|
-| Caminho do projeto | `/var/www/saas-poc` |
-| Domínio central | `tcsystem.shop` |
-| Banco / usuário | `saas_poc` / `saas_poc_user@localhost` |
-| Tenants de exemplo | `cliente1` (Clinica Pet Feliz), `cliente2` (Aumiga Veterinaria) |
+Ver [known-issues](./docs/ai-context/known-issues.md) (control plane, versão
+Laravel × stancl, modo de pooling do PgBouncer, modelo de licenças).

@@ -26,16 +26,15 @@ isolados). Antes de escrever código de produção, foi feito um spike para deci
 
 Forças em jogo:
 
-- Já existe uma POC ([este repositório](../../../README.md)) que **provou** o
-  conceito de banco único com `tenant_id` + identificação por subdomínio, usando
-  uma implementação própria enxuta (trait `BelongsToTenant`, middleware
-  `IdentifyTenant`, singleton `Tenancy`).
+- Uma **POC** já **provou** o conceito de banco único com `tenant_id` +
+  identificação por subdomínio (implementação própria enxuta). Ver
+  [lições da POC](../../ai-context/poc-learnings.md).
 - O isolamento de produção precisa ir além das queries: idealmente também
   **cache, filas (queues), storage e sessões** por tenant.
 - Teremos um **sistema de controle próprio** para gerenciar tenants e **licenças**
   (ex.: adicionar/renovar a licença de um tenant específico).
-- Estamos no **Laravel 13** (versão muito recente) — compatibilidade de pacotes
-  de terceiros precisa ser verificada.
+- Compatibilidade de pacotes de terceiros com a versão alvo do Laravel precisa
+  ser verificada antes de fixar versões.
 
 ## Decisão
 
@@ -46,13 +45,15 @@ Para o sistema oficial multi-tenant, **vamos usar**:
    alinhado ao que a POC validou e ao escopo do spike.
 3. **Identificação por subdomínio** (`cliente.dominio`), como na POC
    (`InitializeTenancyBySubdomain` do stancl).
-4. Um **sistema de controle próprio (control plane)** para o ciclo de vida do
+4. **PostgreSQL** como SGBD, atrás do pooler **PgBouncer** — detalhes e trade-offs
+   em [ADR-002](./ADR-002-postgres-pgbouncer.md).
+5. Um **sistema de controle próprio (control plane)** para o ciclo de vida do
    tenant e **licenciamento** — onde esse sistema vive (app central separado vs
    módulo) ainda é **decisão em aberto**, detalhada em
    [gestão de tenants e licenças](../../features/tenant-license-management.md).
 
 A implementação própria da POC serviu para **aprender e validar**; ela **não** vai
-para produção (ver "Alternativas").
+para produção (ver "Alternativas" e [lições da POC](../../ai-context/poc-learnings.md)).
 
 ## Consequências
 
@@ -68,8 +69,9 @@ para produção (ver "Alternativas").
 
 ### Negativas / Trade-offs
 - Curva de aprendizado e uma dependência externa (caixa-preta) a acompanhar.
-- **Risco de compatibilidade com Laravel 13** — precisa ser confirmado antes de
-  fixar a versão (ver [arquitetura alvo](../target-production.md#riscos-a-validar)).
+- **Risco de compatibilidade com a versão alvo do Laravel** — precisa ser
+  confirmado antes de fixar a versão (ver
+  [known-issues](../../ai-context/known-issues.md)).
 - Convenções do pacote podem divergir das nossas em pontos específicos.
 
 ### Neutras
@@ -92,8 +94,8 @@ agora. Pode ser **reavaliada** no futuro caso requisitos de compliance/isolament
 exijam — sem reescrever o domínio, já que continuaríamos no mesmo pacote.
 
 ## Referências
-- POC (implementação própria): [feature multi-tenancy](../../../ARCHITECTURE.md) e
-  [autenticação por tenant](../../features/authentication.md)
-- [Arquitetura alvo de produção](../target-production.md)
+- [Arquitetura do sistema](../../../ARCHITECTURE.md)
+- [ADR-002 — PostgreSQL + PgBouncer](./ADR-002-postgres-pgbouncer.md)
 - [Roadmap single-user → multi-tenant](../migration-single-user-to-multitenant.md)
+- [Lições da POC](../../ai-context/poc-learnings.md)
 - Documentação do pacote: https://tenancyforlaravel.com/

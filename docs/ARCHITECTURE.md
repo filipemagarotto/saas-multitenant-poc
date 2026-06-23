@@ -1,123 +1,130 @@
 ---
 title: Arquitetura do Sistema
-status: stable
+status: draft
 owner: filipe-magarotto
-last_updated: 2026-06-21
+last_updated: 2026-06-23
 ai_friendly: true
-tags: [architecture, system-design, multi-tenancy]
+tags: [architecture, system-design, multi-tenancy, stancl, postgres]
 ---
 
 # Arquitetura do Sistema
 
-> **Escopo deste documento: a POC (o que foi FEITO).** Descreve a implementação
-> **própria** de multi-tenancy usada para validar o conceito. A arquitetura
-> **alvo de produção** (com `stancl/tenancy` + control plane de licenças) está em
-> [docs/architecture/target-production.md](./docs/architecture/target-production.md)
-> e a decisão em
-> [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md).
+> Arquitetura do sistema oficial multi-tenant. As decisões formais estão nos ADRs
+> ([ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md),
+> [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md)). O conceito
+> foi validado numa POC — ver [lições da POC](./docs/ai-context/poc-learnings.md).
 
 ## Visão geral
 
-Aplicação Laravel monolítica servida por Nginx + PHP-FPM, com persistência em um
-**único banco MySQL**. O multi-tenancy é feito por **discriminador de coluna**
-(`tenant_id`): todos os tenants compartilham as mesmas tabelas, e o isolamento é
-garantido por um *global scope* do Eloquent aplicado automaticamente. O tenant é
-identificado pelo **subdomínio** da requisição.
+Aplicação **Laravel** multi-tenant com **banco de dados compartilhado** (um único
+banco, todos os tenants nas mesmas tabelas, separados pela coluna `tenant_id`). A
+tenancy é provida pelo pacote **`stancl/tenancy`** em **modo single-database**. O
+tenant é identificado pelo **subdomínio** da requisição. O banco é **PostgreSQL**,
+acessado através do pooler **PgBouncer**.
+
+Um **sistema de controle próprio (control plane)** gerencia o ciclo de vida dos
+tenants e suas **licenças** (ver
+[feature](./docs/features/tenant-license-management.md)).
 
 ## Diagrama de componentes
 
 ```
-   Navegador
- cliente1.tcsystem.shop
-        │  HTTP (porta 80)
-        ▼
-┌────────────────┐     FastCGI      ┌────────────────┐
-│     Nginx      │─────────────────▶│   PHP-FPM 8.4  │
-│  server_name   │  unix socket     │   (Laravel 13) │
-│ *.tcsystem.shop│                  └───────┬────────┘
-└────────────────┘                          │
-                                            │  PDO (127.0.0.1:3306)
-                                            ▼
-                                   ┌──────────────────┐
-                                   │     MySQL 8.0     │
-                                   │  banco: saas_poc  │
-                                   │  (todos tenants)  │
-                                   └──────────────────┘
+                         ┌───────────────────────────────┐
+   Sistema de Controle   │  Control plane (sistema NOSSO) │
+   (tenants + licenças)  │  cria/provisiona tenants e     │
+                         │  define/renova licenças        │
+                         └───────────────┬───────────────┘
+                                         │ (cria tenant, define licença)
+                                         ▼
+   Navegador                  ┌────────────────────────┐
+ cliente.dominio  ──HTTPS───▶ │  App Laravel +          │
+                              │  stancl/tenancy         │
+                              │  (single-database)      │
+                              │  subdomínio → tenant    │
+                              │  licença → acesso       │
+                              └───────────┬────────────┘
+                                          │ SQL (pool)
+                                          ▼
+                              ┌────────────────────────┐      ┌─────────────────┐
+                              │     PgBouncer           │─────▶│  PostgreSQL     │
+                              │  (connection pooler)    │      │  banco único    │
+                              └────────────────────────┘      │  (tenant_id)    │
+                                                              └─────────────────┘
 ```
 
 ## Componentes principais
 
-### Nginx (web server)
-- **Versão:** 1.24
-- **Responsabilidade:** Receber HTTP na porta 80, servir a pasta `public/` do
-  Laravel e repassar `.php` ao PHP-FPM via socket Unix.
-- **server_name:** `tcsystem.shop *.tcsystem.shop` (wildcard cobre os subdomínios
-  de todos os tenants sem reconfiguração por cliente).
-- **Config:** `/etc/nginx/sites-available/saas-poc`.
+### App Laravel + `stancl/tenancy`
+- **Tenancy:** pacote `stancl/tenancy` em **modo single-database**. Não há troca
+  de conexão/banco por tenant — o isolamento é por `tenant_id` via *global scope*
+  (trait `BelongsToTenant` do pacote), que filtra as queries e preenche o
+  `tenant_id` ao criar registros.
+- **Identificação:** por **subdomínio** (`InitializeTenancyBySubdomain`). O
+  domínio central serve rotas não-tenant.
+- **Bootstrappers:** o pacote isola por tenant também **cache, filas (queues) e
+  storage**, além das queries.
 
-### PHP-FPM + Laravel (aplicação)
-- **Versões:** PHP 8.4, Laravel 13.
-- **Responsabilidade:** Toda a lógica de aplicação, roteamento, identificação de
-  tenant e acesso a dados.
-- **Socket:** `/run/php/php8.4-fpm.sock` (usuário `www-data`).
+### PostgreSQL (banco de dados)
+- **Banco único compartilhado** por todos os tenants. Isolamento **lógico** pela
+  coluna `tenant_id` (ver [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md)).
+- Escolha do Postgres e seus motivos: [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md).
 
-### MySQL (banco de dados)
-- **Versão:** 8.0
-- **Estratégia:** Banco único `saas_poc`. Tabelas compartilhadas com coluna
-  `tenant_id`. Escuta apenas em `127.0.0.1` (não exposto à internet).
-- **Usuário da aplicação:** `saas_poc_user@localhost` com privilégios restritos ao
-  banco `saas_poc` (a aplicação NÃO usa o root do banco).
+### PgBouncer (connection pooler)
+- Fica entre a aplicação e o Postgres, reutilizando conexões para suportar muitas
+  requisições/tenants sem esgotar as conexões do banco.
+- Como estamos em **single-database** (sem `SET search_path`/troca de conexão por
+  tenant), o pooling em **modo transaction** é viável — com as ressalvas de
+  prepared statements documentadas no [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md).
+
+### Control plane (sistema de controle próprio)
+- Gerencia tenants (criação/provisionamento) e **licenças** (plano, validade,
+  limites, funcionalidades). Onde ele vive (app separado vs módulo) é **decisão em
+  aberto** — ver [feature](./docs/features/tenant-license-management.md).
 
 ## Multi-tenancy — como o isolamento funciona
 
-O isolamento é montado em 4 peças (ver [feature](./docs/features/multi-tenancy.md)):
-
-1. **`Tenancy` (singleton)** — guarda o "tenant atual" durante a requisição.
-2. **`IdentifyTenant` (middleware)** — lê o subdomínio, encontra o tenant pelo
-   `slug` e o define como atual (ou retorna 404).
-3. **`BelongsToTenant` (trait)** — aplicado em models como `Pet` e `User`.
-   Adiciona um *global scope* que filtra toda consulta pelo `tenant_id` atual e
-   preenche `tenant_id` automaticamente ao criar registros.
-4. **Grupos de rota por domínio** — rotas centrais em `tcsystem.shop`; rotas de
-   tenant em `{tenant}.tcsystem.shop` (protegidas pelo middleware).
-5. **Autenticação por tenant** — como `User` também usa `BelongsToTenant`, o
-   login (`Auth::attempt`) e a resolução do usuário logado já vêm filtrados pelo
-   tenant atual: um usuário do `cliente1` não autentica no `cliente2`. As rotas
-   de dados ficam atrás do middleware `auth`. Ver
-   [feature](./docs/features/authentication.md).
+1. **Identificação:** o middleware do `stancl/tenancy` lê o subdomínio e inicializa
+   o tenant atual (ou retorna 404 se o subdomínio não corresponder a um tenant).
+2. **Isolamento de dados:** todo model com dados de cliente usa o trait
+   `BelongsToTenant` do pacote → *global scope* filtra por `tenant_id` e o
+   preenche automaticamente ao criar.
+3. **Autenticação por tenant:** o `User` também é escopado por tenant, então o
+   login só autentica usuários do tenant atual (ver
+   [autenticação](./docs/features/authentication.md)).
+4. **Licença:** um middleware verifica a licença do tenant atual antes de liberar
+   as áreas restritas.
 
 ## Fluxo de uma requisição de tenant
 
-1. Navegador acessa `cliente1.tcsystem.shop/pets`.
-2. Nginx (wildcard) serve a requisição e repassa ao PHP-FPM.
-3. Laravel casa a rota `{tenant}.tcsystem.shop/pets` e aplica o middleware `tenant`.
-4. `IdentifyTenant` extrai `cliente1`, busca o `Tenant` com `slug=cliente1` e o
-   registra no `Tenancy`.
-5. A rota chama `Pet::all()`. O *global scope* do `BelongsToTenant` injeta
-   `where tenant_id = <id do cliente1>` automaticamente.
-6. Retornam apenas os pets do cliente1.
+1. Navegador acessa `cliente.dominio/...`.
+2. O middleware do `stancl/tenancy` identifica `cliente` pelo subdomínio e
+   inicializa a tenancy.
+3. Middleware de licença confere se o tenant está ativo/em dia.
+4. Middleware de autenticação garante usuário logado **deste** tenant.
+5. As queries dos models de cliente já vêm filtradas por `tenant_id`.
 
-## Decisões de arquitetura
+## Decisões de arquitetura (ADRs)
 
-Ver [docs/architecture/adr/](./docs/architecture/adr/) para os ADRs. Decisão
-principal: [ADR-001 — Banco único multi-tenant](./docs/architecture/adr/ADR-001-single-database-multitenancy.md).
+- [ADR-001 — Multi-tenancy de banco único com stancl/tenancy](./docs/architecture/adr/ADR-001-single-database-multitenancy.md)
+- [ADR-002 — PostgreSQL + PgBouncer](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md)
 
 ## O que NÃO fazer
 
 - ❌ Não consultar models com dados de tenant **sem** o trait `BelongsToTenant` —
-  isso fura o isolamento. Todo model com dados de cliente deve usar o trait.
-- ❌ Não usar o usuário **root** do MySQL na aplicação — use `saas_poc_user`.
-- ❌ Não avaliar o tenant atual no `boot` do model (apenas em tempo de consulta) —
-  processos PHP-FPM são reaproveitados entre requisições e isso vazaria dados.
-- ❌ Não commitar `.env` nem segredos — o `.env` está no `.gitignore`.
-- ❌ Não criar server block por cliente no Nginx — o wildcard já cobre todos.
-- ❌ Não definir `SESSION_DOMAIN=.tcsystem.shop` — isso compartilharia o cookie de
-  sessão entre subdomínios. O cookie deve ficar host-only (`SESSION_DOMAIN` vazio)
-  para que a sessão de um tenant não trafegue para outro.
+  fura o isolamento.
+- ❌ Não definir `SESSION_DOMAIN` no domínio raiz (ex.: `.dominio`) — o cookie de
+  sessão deve ficar host-only para não trafegar entre subdomínios de tenants.
+- ❌ Não acessar/alterar tenants ou licenças direto no banco — usar o control plane.
+- ❌ Não assumir **schema/banco por tenant** (multi-database): a decisão atual é
+  **single-database**. Migrar para schema-per-tenant no futuro exige rever o modo
+  de pooling do PgBouncer (ver ADR-002).
 
-## Limitações conhecidas
+## Decisões em aberto
 
-- Sem HTTPS ainda (acesso por HTTP). Ver [known-issues](./docs/ai-context/known-issues.md).
-- Isolamento é **lógico** (coluna), não físico (banco por tenant) — um bug de query
-  sem o scope poderia vazar dados entre tenants.
-- `pets.tenant_id` é `nullable` no schema (legado da fase pré-tenant).
+- [ ] Onde vive o control plane (app central separado vs módulo).
+- [ ] Versão alvo de Laravel × compatibilidade do `stancl/tenancy` (validar).
+- [ ] Modo de pooling do PgBouncer (transaction vs session) confirmado por teste.
+
+## Limitações e riscos
+
+Ver [known-issues](./docs/ai-context/known-issues.md).

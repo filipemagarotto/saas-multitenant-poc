@@ -21,8 +21,7 @@ tags: [architecture, roadmap, migration, multi-tenancy, target]
 | 3 | **Sistema oficial multi-tenant** (alvo) | **Novo repo greenfield** que junta o domínio do (2) com a tenancy validada no (1), usando `stancl/tenancy`. |
 
 > Decisão fixada: o alvo é um **novo repositório greenfield** (não evoluir o repo
-> atual in-place). Ver respostas do spike e
-> [arquitetura alvo](./target-production.md).
+> atual in-place). Ver [arquitetura do sistema](../../ARCHITECTURE.md).
 
 ## Princípio
 
@@ -34,15 +33,18 @@ produção a tenancy vem do `stancl/tenancy` (ver
 ## Fases
 
 ### Fase 0 — Validação (pré-código)
-- [ ] Confirmar compatibilidade `stancl/tenancy` × Laravel 13 (ou definir a versão
-      do Laravel a usar). Ver [riscos](./target-production.md#riscos-a-validar).
+- [ ] Confirmar compatibilidade `stancl/tenancy` × versão alvo do Laravel. Ver
+      [known-issues](../ai-context/known-issues.md).
+- [ ] Validar PgBouncer (modo de pooling) + Postgres com o app (ver
+      [ADR-002](./adr/ADR-002-postgres-pgbouncer.md)).
 - [ ] Decidir onde vive o control plane (ver
       [gestão de tenants e licenças](../features/tenant-license-management.md)).
 
 ### Fase 1 — Esqueleto multi-tenant (novo repo)
 - [ ] Novo repo Laravel + `stancl/tenancy` (modo single-database).
+- [ ] PostgreSQL + PgBouncer configurados.
 - [ ] Identificação por subdomínio + domínio central configurados.
-- [ ] Tenant de exemplo subindo (smoke test equivalente ao `/pets` da POC).
+- [ ] Tenant de exemplo subindo (smoke test de isolamento).
 
 ### Fase 2 — Portar o domínio do sistema oficial
 - [ ] Trazer models/migrations/telas do sistema oficial atual.
@@ -51,8 +53,8 @@ produção a tenancy vem do `stancl/tenancy` (ver
 - [ ] Garantir que nenhuma query de dados de cliente roda sem o escopo de tenant.
 
 ### Fase 3 — Autenticação por tenant
-- [ ] `users.tenant_id` + login isolado por tenant (mesmo conceito da
-      [POC](../features/authentication.md), com o trait do stancl).
+- [ ] `users.tenant_id` + login isolado por tenant, com o trait do stancl. Ver
+      [autenticação por tenant](../features/authentication.md).
 
 ### Fase 4 — Control plane e licenças
 - [ ] Implementar gestão de tenants/licenças conforme a
@@ -78,7 +80,8 @@ produção a tenancy vem do `stancl/tenancy` (ver
   aberto forem fechadas.
 
 ## Referências
+- [Arquitetura do sistema](../../ARCHITECTURE.md)
 - [ADR-001 — Estratégia de multi-tenancy](./adr/ADR-001-single-database-multitenancy.md)
-- [Arquitetura alvo de produção](./target-production.md)
+- [ADR-002 — PostgreSQL + PgBouncer](./adr/ADR-002-postgres-pgbouncer.md)
 - [Gestão de tenants e licenças](../features/tenant-license-management.md)
-- POC: [ARCHITECTURE.md](../../ARCHITECTURE.md) · [autenticação](../features/authentication.md)
+- [Lições da POC](../ai-context/poc-learnings.md)

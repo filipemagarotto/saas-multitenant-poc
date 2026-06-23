@@ -1,58 +1,53 @@
 ---
-title: Limitações e Problemas Conhecidos
-status: stable
+title: Limitações, Riscos e Decisões em Aberto
+status: draft
 owner: filipe-magarotto
-last_updated: 2026-06-21
+last_updated: 2026-06-23
 ai_friendly: true
-tags: [known-issues, tech-debt]
+tags: [known-issues, risks, open-decisions]
 ---
 
-# Limitações e Problemas Conhecidos
+# Limitações, Riscos e Decisões em Aberto
 
-> Para IAs: ao sugerir mudanças, verifique se não conflitam com as limitações abaixo.
-> Esta é uma POC — vários itens de produção são omissões propositais desta fase.
+> Para IAs: ao sugerir mudanças, verifique se não conflitam com os itens abaixo.
+> Este documento é do **sistema oficial multi-tenant**; itens da POC foram
+> descartados de propósito (ver [lições da POC](./poc-learnings.md)).
 
-> **POC × Produção:** a implementação de tenancy deste repo é **própria** e serve
-> só para validar o conceito. O sistema oficial usará **`stancl/tenancy`**
-> (ver [ADR-001](../architecture/adr/ADR-001-single-database-multitenancy.md)) num
-> **novo repo greenfield** — **não** porte a trait/middleware desta POC para lá.
+## Decisões em aberto
 
-## Dívidas técnicas ativas
+| ID | Tema | Pendência |
+|----|------|-----------|
+| OD-001 | **Control plane** | Onde vive o sistema de gestão de tenants/licenças (app central separado vs módulo) — ver [feature](../features/tenant-license-management.md) |
+| OD-002 | **Modelo de licenças** | Campos, planos, limites e funcionalidades por plano |
+| OD-003 | **Versão Laravel × stancl** | Fixar a versão alvo do Laravel compatível com o `stancl/tenancy` |
+| OD-004 | **Pooling do PgBouncer** | Confirmar `transaction` vs `session` por teste (ver ADR-002) |
+| OD-005 | **Integração app × control plane** | Como o app lê a licença (tabela compartilhada, API, cache) |
 
-| ID | Descrição | Impacto | Workaround / nota |
-|----|-----------|---------|-------------------|
-| TD-001 | `pets.tenant_id` e `users.tenant_id` são `nullable` | Permite registro sem tenant no schema | Trait/seed preenchem sempre; tornar `NOT NULL` em migration futura |
-| TD-002 | Isolamento apenas lógico (coluna), não físico | Bug de query sem o scope vazaria dados entre tenants | Cobrir com testes; sempre usar `BelongsToTenant` |
-| TD-003 | Senha do root do MySQL gravada em `/root/mysql_root_password.txt` | Segredo em texto na VPS | Salvar em gerenciador e apagar o arquivo |
-| TD-004 | Cobertura de testes ainda parcial | Regressões podem passar despercebidas | Há `TenantAuthTest` (login/isolamento); ampliar para os demais models |
+## Riscos a validar (spikes)
 
-## Fora de escopo nesta fase (propositais)
+- **Compatibilidade `stancl/tenancy` × Laravel.** Confirmar versão suportada antes
+  de fixar dependências. Pode ser o fator que define a versão do Laravel.
+- **PgBouncer em modo `transaction`.** Validar prepared statements do PDO/Laravel
+  e ausência de dependência de estado de sessão (ver
+  [ADR-002](../architecture/adr/ADR-002-postgres-pgbouncer.md)).
+- **Migração de dados** do sistema single-user atual para o primeiro tenant
+  (ver [roadmap](../architecture/migration-single-user-to-multitenant.md)).
 
-- **HTTPS / TLS:** acesso é HTTP puro. Não usar dados sensíveis reais.
-- **CI/CD:** deploy é manual na VPS.
-- **Cadastro self-service de tenants:** tenants são criados via `tinker`/seed.
-- **Cadastro self-service de usuários:** usuários são criados via `tinker`/seed,
-  igual aos tenants. Sem recuperação de senha nem verificação de e-mail.
-- **Painel administrativo / rotas centrais ricas:** o domínio central só tem a
-  landing padrão.
-- **Migrations automáticas por tenant:** não se aplica (banco único).
+## Limitações conhecidas (por design, nesta fase)
 
-## Infraestrutura (POC)
+- **Isolamento lógico**, não físico: todos os tenants no mesmo banco, separados
+  por `tenant_id`. Um bug de query sem o escopo de tenant poderia vazar dados —
+  por isso a regra de **sempre** usar `BelongsToTenant` e cobrir com testes.
+- **Single-database**: sem schema/banco por tenant nesta fase. Migrar para
+  schema-per-tenant no futuro impacta o modo de pooling (ADR-002).
+- **Sem self-service de cadastro** de tenants/usuários nesta fase — criados pelo
+  control plane.
 
-- **Sem swap** configurado na VPS (7.8 GB RAM cobrem o uso atual).
-- **Firewall `ufw` inativo** — a proteção de porta depende do firewall do provedor.
-- **DNS de `tcsystem.shop` em propagação** — testar via arquivo `hosts` enquanto não
-  propaga; requer registros A `tcsystem.shop` e wildcard `*` apontando para o IP.
+## Comportamentos não-óbvios (a observar na implementação)
 
-## Comportamentos não-óbvios
-
-- O parâmetro de rota `{tenant}` é removido (`forgetParameter`) pelo middleware, então
-  as closures/controllers das rotas de tenant **não** recebem o slug como argumento.
-- Após mudar código, o **OPcache** do PHP-FPM pode servir a versão antiga por alguns
-  segundos; um `systemctl reload php8.4-fpm` força a releitura.
-- Acessar pelo IP direto (sem Host de domínio) não casa as rotas de tenant — é
-  esperado, o roteamento é por domínio.
-- O middleware `tenant` precisa rodar **antes** do `auth`: a resolução do usuário
-  logado depende do tenant atual já estar definido (escopo do `User`).
-- O cookie de sessão é host-only (`SESSION_DOMAIN` vazio). Não preencher com
-  `.tcsystem.shop`, senão a sessão passaria a valer entre subdomínios.
+- O middleware de tenancy precisa rodar **antes** de autenticação/licença, pois o
+  escopo por tenant depende do tenant atual já estar definido.
+- O cookie de sessão deve ficar **host-only** (`SESSION_DOMAIN` vazio) para não
+  trafegar entre subdomínios de tenants.
+- Jobs/filas e comandos artisan **não** têm tenant atual automaticamente —
+  inicializar a tenancy explicitamente antes de tocar em dados de tenant.
