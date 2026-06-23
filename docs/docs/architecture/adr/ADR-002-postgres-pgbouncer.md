@@ -72,14 +72,14 @@ O sistema oficial multi-tenant usa **banco único compartilhado** com `tenant_id
   (criar a policy em toda tabela de tenant).
 
 ### Neutras
-- Troca de MySQL (usado na POC) por Postgres não muda o modelo de tenancy; muda o
-  SGBD e a configuração de conexão.
+- A escolha do SGBD não muda o modelo de tenancy (single-database com `tenant_id`);
+  muda a configuração de conexão e os recursos disponíveis.
 
 ## Alternativas consideradas
 
-### Alternativa A: MySQL (como na POC)
-**Descartada porque:** a decisão para o sistema oficial é Postgres. (A POC usou
-MySQL apenas para validar o conceito; não é referência de produção.)
+### Alternativa A: MySQL
+**Descartada porque:** a decisão é PostgreSQL, pelos recursos que ele agrega ao
+isolamento e à observabilidade (RLS, `pg_stat_statements`, JSONB).
 
 ### Alternativa B: Postgres sem PgBouncer
 **Descartada porque:** sob muitos tenants/processos PHP-FPM, o número de conexões

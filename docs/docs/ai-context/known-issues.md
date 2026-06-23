@@ -10,8 +10,6 @@ tags: [known-issues, risks, open-decisions]
 # Limitações, Riscos e Decisões em Aberto
 
 > Para IAs: ao sugerir mudanças, verifique se não conflitam com os itens abaixo.
-> Este documento é do **sistema oficial multi-tenant**; itens da POC foram
-> descartados de propósito (ver [lições da POC](./poc-learnings.md)).
 
 ## Decisões em aberto
 
@@ -23,10 +21,14 @@ tags: [known-issues, risks, open-decisions]
 | OD-005 | **Integração app × Painel** | Bancos separados → app lê tenant/licença via **API do Painel** ou **cache** (não tabela compartilhada); definir sync da lista de tenants |
 | OD-006 | **Monitoramento do banco** | Adotar ou não o **PgHero** (lê do `pg_stat_statements`) — em avaliação (ver ADR-002) |
 | OD-007 | **JWT** | Biblioteca/guard, algoritmo de assinatura, estratégia de **refresh** e de **revogação** (ver [autenticação](../features/authentication.md)) |
+| OD-008 | **Auditoria** | Retenção, imutabilidade (append-only) e onde vive o log de segurança (app e/ou Painel) — ver [auditoria](../features/auditing.md) |
 
 > **Decidido:** o Painel (gestão de tenants/licenças) é um **sistema próprio em
 > repo separado**, na **mesma VPS contratada** porém em **porta própria** e
 > **banco próprio** (era OD-001). Falta só definir a integração (OD-005).
+>
+> **Decidido:** monitoramento de erros via **GlitchTip self-hosted**; auditoria em
+> **duas trilhas** (negócio + segurança). Detalhes pendentes em OD-008.
 
 ## Riscos a validar (spikes)
 

@@ -39,6 +39,9 @@ tags: [domain, glossary]
 | **Modo de pooling** | Estratégia do PgBouncer (`session`, `transaction`, `statement`) que define como as conexões são reaproveitadas. |
 | **`pg_stat_statements`** | Extensão do PostgreSQL (habilitada) que coleta estatísticas de execução das queries — base de observabilidade do banco. |
 | **PgHero** | Dashboard de monitoramento para PostgreSQL (lê do `pg_stat_statements`). **Possibilidade em avaliação** para o monitoramento do banco. |
+| **GlitchTip** | Software open source **self-hosted** de monitoramento de **erros/exceções** da aplicação (compatível com SDKs do Sentry). Distinto das trilhas de auditoria. |
+| **Audit log de negócio** | Trilha de **quem fez o quê** no produto (accountability). Tabela `audit_logs`, escopada por tenant. Ver [auditoria](./docs/features/auditing.md). |
+| **Log de segurança/acesso** | Trilha de **eventos de auth/autorização** (falhas de login, mudança de permissão) para detectar abuso/incidentes. Tabela `security_events`. Ver [auditoria](./docs/features/auditing.md). |
 
 ## Contexto
 
@@ -52,7 +55,6 @@ tags: [domain, glossary]
 | Sigla | Significado |
 |-------|-------------|
 | ADR | Architecture Decision Record |
-| POC | Proof of Concept (prova de conceito) |
 | SGBD | Sistema Gerenciador de Banco de Dados |
 | DNS | Domain Name System |
 | TLS | Transport Layer Security (HTTPS) |

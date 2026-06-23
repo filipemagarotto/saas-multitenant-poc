@@ -59,7 +59,7 @@ single-database. Decisão em
 
 ## Decisões técnicas
 
-- `tenant_id` **NOT NULL** desde o início (diferente do legado da POC).
+- `tenant_id` **NOT NULL** em toda tabela de dados de cliente.
 - O middleware de tenancy roda antes de autenticação e licença.
 - Não rodar query de dados de cliente sem o escopo de tenant.
 

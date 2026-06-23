@@ -9,8 +9,8 @@ tags: [overview, onboarding, multi-tenancy]
 
 # Sistema Multi-tenant — Documentação
 
-> Documentação do sistema oficial **SaaS multi-tenant** em Laravel. O conceito foi
-> validado numa POC; aqui fica a arquitetura e as decisões para o produto real.
+> Documentação do sistema **SaaS multi-tenant** em Laravel: arquitetura, decisões
+> e features.
 
 ## O que é
 
@@ -32,6 +32,7 @@ contratada) cria/gerencia tenants e **licenças** e os monitora de fora.
 | Autenticação | JWT por tenant (token carrega `tenant_id`) | [authentication](./docs/features/authentication.md) |
 | Banco de dados | PostgreSQL + PgBouncer + RLS | [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) |
 | Gestão de tenants/licenças | Painel próprio — repo separado, mesma VPS (porta/banco próprios) | [feature](./docs/features/tenant-license-management.md) |
+| Observabilidade / auditoria | GlitchTip (erros) + audit log de negócio + log de segurança | [auditoria](./docs/features/auditing.md) |
 
 ## Documentação
 
@@ -42,12 +43,12 @@ contratada) cria/gerencia tenants e **licenças** e os monitora de fora.
 | [docs/features/multi-tenancy.md](./docs/features/multi-tenancy.md) | Como o multi-tenant funciona |
 | [docs/features/authentication.md](./docs/features/authentication.md) | Login isolado por tenant |
 | [docs/features/tenant-license-management.md](./docs/features/tenant-license-management.md) | Sistema de controle de tenants e licenças |
+| [docs/features/auditing.md](./docs/features/auditing.md) | Auditoria (negócio + segurança) e monitoramento de erros |
 | [docs/architecture/adr/ADR-001-single-database-multitenancy.md](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) | Decisão: stancl/tenancy, single-database, subdomínio |
 | [docs/architecture/adr/ADR-002-postgres-pgbouncer.md](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) | Decisão: PostgreSQL + PgBouncer |
 | [docs/architecture/migration-single-user-to-multitenant.md](./docs/architecture/migration-single-user-to-multitenant.md) | Roadmap: single-user → multi-tenant |
 | [docs/ai-context/conventions.md](./docs/ai-context/conventions.md) | Convenções de código |
 | [docs/ai-context/known-issues.md](./docs/ai-context/known-issues.md) | Limitações, riscos e decisões em aberto |
-| [docs/ai-context/poc-learnings.md](./docs/ai-context/poc-learnings.md) | Lições da POC + mapa POC→produção |
 
 ## Stack alvo
 

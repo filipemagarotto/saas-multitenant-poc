@@ -75,5 +75,3 @@ tags: [conventions, standards, laravel, php]
   [autenticação](../features/authentication.md)).
 - ❌ Secrets hardcoded — usar `.env` / gerenciador de segredos.
 - ❌ `SESSION_DOMAIN` no domínio raiz (vazaria sessão entre tenants).
-- ❌ Portar a implementação própria da POC (ver
-  [lições da POC](./poc-learnings.md)).

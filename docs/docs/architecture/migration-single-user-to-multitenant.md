@@ -9,27 +9,25 @@ tags: [architecture, roadmap, migration, multi-tenancy, target]
 
 # Roadmap: De single-user para multi-tenant
 
-> **O que QUEREMOS fazer**, não o que está feito. Plano para construir o "terceiro
-> sistema": o produto oficial **multi-tenant**.
+> Plano para construir o produto **multi-tenant** a partir do sistema single-user
+> que já existe hoje.
 
 ## Os repositórios
 
 | # | Repositório | Papel |
 |---|-------------|-------|
-| 1 | **POC** (este repo) | Provou o conceito de banco único + subdomínio (implementação própria). Fonte de aprendizado. |
-| 2 | **Sistema oficial atual** | Produto que já funciona hoje, porém **single-user** (um cliente). Fonte do domínio/negócio. |
-| 3 | **Sistema oficial multi-tenant** (alvo) | **Novo repo greenfield** que junta o domínio do (2) com a tenancy validada no (1), usando `stancl/tenancy`. |
-| 4 | **Painel** (control plane) | **Repo separado**: cria/gerencia tenants e licenças e monitora de fora. Mesma VPS, porta e banco próprios. Fora do escopo deste roadmap. |
+| 1 | **Sistema single-user atual** | Produto que já funciona hoje, para um cliente. Fonte do domínio/negócio. |
+| 2 | **Sistema multi-tenant** (alvo) | **Novo repo greenfield** que reaproveita o domínio do (1) com tenancy via `stancl/tenancy`. |
+| 3 | **Painel** (control plane) | **Repo separado**: cria/gerencia tenants e licenças e monitora de fora. Mesma VPS, porta e banco próprios. Fora do escopo deste roadmap. |
 
-> Decisão fixada: o alvo (repo 3) é um **novo repositório greenfield** (não evoluir
-> o repo atual in-place). O **Painel** (repo 4) é construído à parte. Ver
+> Decisão fixada: o alvo (repo 2) é um **novo repositório greenfield** (não evoluir
+> o repo atual in-place). O **Painel** (repo 3) é construído à parte. Ver
 > [arquitetura do sistema](../../ARCHITECTURE.md).
 
 ## Princípio
 
-Reaproveitar o **domínio** do sistema oficial (models, regras de negócio, telas) e
-**não** reaproveitar a infraestrutura de tenancy da POC (que era manual) — em
-produção a tenancy vem do `stancl/tenancy` (ver
+Reaproveitar o **domínio** do sistema atual (models, regras de negócio, telas); a
+tenancy vem do `stancl/tenancy` (ver
 [ADR-001](./adr/ADR-001-single-database-multitenancy.md)).
 
 ## Fases
@@ -77,20 +75,21 @@ produção a tenancy vem do `stancl/tenancy` (ver
 
 ### Fase 6 — Produção / hardening
 - [ ] HTTPS/TLS, isolamento de cache/filas/storage por tenant (stancl), CI/CD,
-      backups, observabilidade.
+      backups.
+- [ ] **Observabilidade e auditoria:** GlitchTip (erros) self-hosted;
+      `pg_stat_statements` (+ PgHero); audit log de negócio e log de segurança/
+      acesso. Ver [auditoria](../features/auditing.md).
 
 ## Riscos e cuidados
 
-- **Não portar** a trait/middleware próprios da POC para o repo alvo — usar os do
-  pacote para não manter duas implementações.
+- Usar a tenancy do `stancl/tenancy` (não implementar tenancy própria em paralelo).
 - A migração de dados (Fase 5) é o ponto mais sensível: fazer com backup e em
   ambiente de validação antes da produção.
-- Manter este roadmap e os docs de alvo sincronizados conforme as decisões em
-  aberto forem fechadas.
+- Manter este roadmap e os docs sincronizados conforme as decisões em aberto forem
+  fechadas.
 
 ## Referências
 - [Arquitetura do sistema](../../ARCHITECTURE.md)
 - [ADR-001 — Estratégia de multi-tenancy](./adr/ADR-001-single-database-multitenancy.md)
 - [ADR-002 — PostgreSQL + PgBouncer](./adr/ADR-002-postgres-pgbouncer.md)
 - [Gestão de tenants e licenças](../features/tenant-license-management.md)
-- [Lições da POC](../ai-context/poc-learnings.md)

@@ -9,10 +9,9 @@ tags: [architecture, system-design, multi-tenancy, stancl, postgres]
 
 # Arquitetura do Sistema
 
-> Arquitetura do sistema oficial multi-tenant. As decisões formais estão nos ADRs
+> Arquitetura do sistema multi-tenant. As decisões formais estão nos ADRs
 > ([ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md),
-> [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md)). O conceito
-> foi validado numa POC — ver [lições da POC](./docs/ai-context/poc-learnings.md).
+> [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md)).
 
 ## Visão geral
 
@@ -126,6 +125,24 @@ fora** (ver [feature](./docs/features/tenant-license-management.md)). Ele roda n
 4. Middleware de autenticação valida o **JWT** (assinatura, expiração e
    `tenant_id` == tenant atual) e resolve o usuário **deste** tenant.
 5. As queries dos models de cliente já vêm filtradas por `tenant_id`.
+
+## Observabilidade e auditoria
+
+Três trilhas **distintas**, com propósitos diferentes:
+
+| Trilha | O que registra | Como |
+|--------|----------------|------|
+| **Erros/exceções** | Falhas técnicas da aplicação | **GlitchTip** (self-hosted, open source, compatível com SDKs Sentry) |
+| **Audit log de negócio** | Quem fez o quê no produto (accountability) | Tabela `audit_logs`, escopada por tenant (RLS) |
+| **Log de segurança/acesso** | Eventos de auth/autorização (abuso, incidentes) | Tabela `security_events`; pode alimentar o Painel |
+
+- **GlitchTip:** monitora **erros/exceções** da aplicação. Self-hosted (pode rodar
+  na VPS); anexar o `tenant_id` como contexto/tag nos eventos ajuda a saber de qual
+  tenant veio o erro.
+- **Monitoramento do banco:** `pg_stat_statements` (+ PgHero em avaliação) — ver
+  [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md).
+- **Auditoria (negócio e segurança):** detalhes e modelo de dados em
+  [auditoria](./docs/features/auditing.md).
 
 ## Decisões de arquitetura (ADRs)
 
