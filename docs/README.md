@@ -18,8 +18,9 @@ Uma aplicação **SaaS multi-tenant** onde cada cliente (tenant) acessa por um
 **subdomínio próprio** (ex.: `cliente.dominio`) e enxerga **apenas os seus
 dados**. O isolamento usa **banco de dados compartilhado** (uma base, separação
 por `tenant_id`) com o pacote **`stancl/tenancy`** (modo single-database). O banco
-é **PostgreSQL** atrás do pooler **PgBouncer**. Um **sistema de controle próprio**
-gerencia tenants e **licenças**.
+é **PostgreSQL** atrás do pooler **PgBouncer**, com **Row-Level Security (RLS)**
+como camada extra de isolamento. O **Painel** (sistema próprio da empresa, na VPS
+contratada) cria/gerencia tenants e **licenças** e os monitora de fora.
 
 ## Pilares (decisões fixadas)
 
@@ -28,8 +29,9 @@ gerencia tenants e **licenças**.
 | Estratégia de tenancy | Banco único compartilhado (`tenant_id`) | [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) |
 | Framework de tenancy | `stancl/tenancy` (single-database) | [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) |
 | Identificação do tenant | Subdomínio | [multi-tenancy](./docs/features/multi-tenancy.md) |
-| Banco de dados | PostgreSQL + PgBouncer | [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) |
-| Gestão de tenants/licenças | Control plane próprio | [feature](./docs/features/tenant-license-management.md) |
+| Autenticação | JWT por tenant (token carrega `tenant_id`) | [authentication](./docs/features/authentication.md) |
+| Banco de dados | PostgreSQL + PgBouncer + RLS | [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) |
+| Gestão de tenants/licenças | Painel próprio — repo separado, mesma VPS (porta/banco próprios) | [feature](./docs/features/tenant-license-management.md) |
 
 ## Documentação
 
@@ -50,11 +52,11 @@ gerencia tenants e **licenças**.
 ## Stack alvo
 
 - **Backend:** PHP / Laravel + `stancl/tenancy` (single-database)
-- **Banco:** PostgreSQL (banco único, isolamento por `tenant_id`) + PgBouncer
+- **Banco:** PostgreSQL (banco único, isolamento por `tenant_id` + RLS) + PgBouncer
 - **Tenancy:** identificação por subdomínio
-- **Controle:** sistema próprio de tenants e licenças (control plane)
+- **Controle:** Painel próprio (tenants, licenças, monitoramento) na VPS contratada
 
 ## Decisões em aberto
 
-Ver [known-issues](./docs/ai-context/known-issues.md) (control plane, versão
-Laravel × stancl, modo de pooling do PgBouncer, modelo de licenças).
+Ver [known-issues](./docs/ai-context/known-issues.md) (integração app × Painel,
+versão Laravel × stancl, modo de pooling do PgBouncer / RLS, modelo de licenças).

@@ -17,11 +17,16 @@ tags: [known-issues, risks, open-decisions]
 
 | ID | Tema | Pendência |
 |----|------|-----------|
-| OD-001 | **Control plane** | Onde vive o sistema de gestão de tenants/licenças (app central separado vs módulo) — ver [feature](../features/tenant-license-management.md) |
 | OD-002 | **Modelo de licenças** | Campos, planos, limites e funcionalidades por plano |
 | OD-003 | **Versão Laravel × stancl** | Fixar a versão alvo do Laravel compatível com o `stancl/tenancy` |
 | OD-004 | **Pooling do PgBouncer** | Confirmar `transaction` vs `session` por teste (ver ADR-002) |
-| OD-005 | **Integração app × control plane** | Como o app lê a licença (tabela compartilhada, API, cache) |
+| OD-005 | **Integração app × Painel** | Bancos separados → app lê tenant/licença via **API do Painel** ou **cache** (não tabela compartilhada); definir sync da lista de tenants |
+| OD-006 | **Monitoramento do banco** | Adotar ou não o **PgHero** (lê do `pg_stat_statements`) — em avaliação (ver ADR-002) |
+| OD-007 | **JWT** | Biblioteca/guard, algoritmo de assinatura, estratégia de **refresh** e de **revogação** (ver [autenticação](../features/authentication.md)) |
+
+> **Decidido:** o Painel (gestão de tenants/licenças) é um **sistema próprio em
+> repo separado**, na **mesma VPS contratada** porém em **porta própria** e
+> **banco próprio** (era OD-001). Falta só definir a integração (OD-005).
 
 ## Riscos a validar (spikes)
 
@@ -30,18 +35,22 @@ tags: [known-issues, risks, open-decisions]
 - **PgBouncer em modo `transaction`.** Validar prepared statements do PDO/Laravel
   e ausência de dependência de estado de sessão (ver
   [ADR-002](../architecture/adr/ADR-002-postgres-pgbouncer.md)).
+- **RLS sob transaction pooling.** Garantir que o tenant atual é definido com
+  `SET LOCAL` por transação (sem vazar entre tenants no pool) e que o role do app
+  não tem `BYPASSRLS` (ver [ADR-002](../architecture/adr/ADR-002-postgres-pgbouncer.md)).
 - **Migração de dados** do sistema single-user atual para o primeiro tenant
   (ver [roadmap](../architecture/migration-single-user-to-multitenant.md)).
 
 ## Limitações conhecidas (por design, nesta fase)
 
 - **Isolamento lógico**, não físico: todos os tenants no mesmo banco, separados
-  por `tenant_id`. Um bug de query sem o escopo de tenant poderia vazar dados —
-  por isso a regra de **sempre** usar `BelongsToTenant` e cobrir com testes.
+  por `tenant_id`. O **RLS** reduz o risco (mesmo um bug de query não vaza dados de
+  outro tenant), mas a regra de **sempre** usar `BelongsToTenant` e cobrir com
+  testes permanece.
 - **Single-database**: sem schema/banco por tenant nesta fase. Migrar para
   schema-per-tenant no futuro impacta o modo de pooling (ADR-002).
 - **Sem self-service de cadastro** de tenants/usuários nesta fase — criados pelo
-  control plane.
+  Painel.
 
 ## Comportamentos não-óbvios (a observar na implementação)
 

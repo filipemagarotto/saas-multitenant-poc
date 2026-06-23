@@ -22,6 +22,7 @@ tags: [domain, glossary]
 | **Tenant atual** | O tenant identificado/inicializado para a requisição em andamento. | Gerenciado pelo `stancl/tenancy`. |
 | **Licença** | Vínculo de um tenant a um plano (validade, limites, funcionalidades) que o app respeita para liberar/bloquear acesso. | Ver [feature](./docs/features/tenant-license-management.md). |
 | **Plano** | Conjunto de funcionalidades/limites que uma licença concede. | Ex.: Básico, Pro. |
+| **Painel** | Sistema próprio da empresa (control plane), **em repositório separado**, onde se criam tenants, gerenciam-se licenças e monitoram-se os tenants de fora. | Roda na **mesma VPS contratada**, mas em **porta própria** e **banco próprio**; conversa com o app. Ver [feature](./docs/features/tenant-license-management.md). |
 
 ## Conceitos técnicos
 
@@ -31,10 +32,13 @@ tags: [domain, glossary]
 | **`stancl/tenancy`** | Pacote de multi-tenancy para Laravel adotado pelo sistema (modo single-database). Ver [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md). |
 | **`BelongsToTenant`** | Trait do `stancl/tenancy` aplicada em models com dados de tenant: adiciona o global scope por `tenant_id` e o preenche ao criar. |
 | **Global Scope** | Filtro do Eloquent aplicado automaticamente a todas as queries de um model. Aqui, filtra por `tenant_id`. |
+| **JWT (JSON Web Token)** | Token assinado e stateless usado para autenticação. No sistema, carrega o `tenant_id` (entre outras claims) e é validado contra o subdomínio a cada requisição. Ver [autenticação](./docs/features/authentication.md). |
 | **Bootstrappers** | Componentes do `stancl/tenancy` que isolam por tenant também cache, filas e storage — não só as queries. |
-| **Control plane** | Sistema de controle próprio para gerenciar o ciclo de vida dos tenants e suas licenças. |
+| **RLS (Row-Level Security)** | Recurso do PostgreSQL: políticas por tabela que filtram as linhas pelo tenant atual no próprio banco. Camada de isolamento complementar ao escopo da aplicação. Tenant atual via `SET LOCAL app.tenant_id` por transação. Ver [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md). |
 | **PgBouncer** | Pooler de conexões para PostgreSQL, entre a aplicação e o banco. Ver [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md). |
 | **Modo de pooling** | Estratégia do PgBouncer (`session`, `transaction`, `statement`) que define como as conexões são reaproveitadas. |
+| **`pg_stat_statements`** | Extensão do PostgreSQL (habilitada) que coleta estatísticas de execução das queries — base de observabilidade do banco. |
+| **PgHero** | Dashboard de monitoramento para PostgreSQL (lê do `pg_stat_statements`). **Possibilidade em avaliação** para o monitoramento do banco. |
 
 ## Contexto
 

@@ -41,7 +41,7 @@ single-database. Decisão em
 
 ### Não inclui (out of scope)
 - Schema/banco por tenant (multi-database) — possível evolução futura.
-- Self-service de cadastro de tenant (fica no control plane).
+- Self-service de cadastro de tenant (fica no Painel).
 
 ## Casos de borda
 

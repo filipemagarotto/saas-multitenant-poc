@@ -34,6 +34,13 @@ O sistema oficial multi-tenant usa **banco único compartilhado** com `tenant_id
    conexões e não esgotar o limite do banco sob muitos tenants/processos.
 3. **Modo de pooling: `transaction`** como alvo (mais eficiente para web/PHP-FPM),
    **a confirmar por teste** com as ressalvas abaixo.
+4. **Row-Level Security (RLS) habilitado** como camada de isolamento **no banco**,
+   além do escopo por `tenant_id` da aplicação (defesa em profundidade). Políticas
+   por tabela do tipo `USING (tenant_id = current_setting('app.tenant_id')::bigint)`,
+   e o tenant atual é definido por requisição via **`SET LOCAL`** dentro de uma
+   transação (ver interação com o PgBouncer abaixo).
+5. **`pg_stat_statements` habilitado** para coletar estatísticas de execução das
+   queries (base de observabilidade do banco).
 
 ## Consequências
 
@@ -43,8 +50,9 @@ O sistema oficial multi-tenant usa **banco único compartilhado** com `tenant_id
 - Single-database + transaction pooling combinam bem: como não dependemos de
   estado de sessão por tenant (`SET search_path`, temp tables por tenant), o
   modo transaction é aplicável.
-- Postgres oferece recursos úteis para o futuro (ex.: **Row-Level Security** como
-  camada extra de isolamento por `tenant_id` — *ideia a avaliar*, não decidida).
+- **RLS** dá isolamento **no próprio banco**: mesmo que uma query da aplicação
+  esqueça o filtro de tenant (bug), o Postgres não retorna linhas de outro tenant.
+  Complementa (não substitui) o global scope do `stancl/tenancy`.
 
 ### Negativas / Trade-offs
 - PgBouncer em modo `transaction` **não preserva estado de sessão** entre queries
@@ -55,6 +63,13 @@ O sistema oficial multi-tenant usa **banco único compartilhado** com `tenant_id
 - Migrar no futuro para **schema-per-tenant** (`SET search_path` por tenant)
   seria **incompatível** com transaction pooling — exigiria modo `session` ou
   outra estratégia. Hoje isso não se aplica (single-database).
+- **RLS + transaction pooling exige cuidado:** o tenant atual deve ser definido com
+  **`SET LOCAL` dentro da transação** (escopo da transação), nunca com `SET` de
+  sessão — senão a configuração persiste na conexão do pool e poderia vazar para a
+  requisição de outro tenant. O role da aplicação **não** pode ter `BYPASSRLS`
+  (nem ser superuser); usar `FORCE ROW LEVEL SECURITY` nas tabelas de tenant.
+- RLS adiciona overhead pequeno por query e exige disciplina nas migrations
+  (criar a policy em toda tabela de tenant).
 
 ### Neutras
 - Troca de MySQL (usado na POC) por Postgres não muda o modelo de tenancy; muda o
@@ -75,11 +90,30 @@ diretas ao Postgres tende a estourar limites. O pooler é o caminho padrão.
 conexões. Fica como **fallback** caso o modo transaction se mostre incompatível
 com o driver/configuração.
 
+## Observabilidade e monitoramento
+
+- **`pg_stat_statements` (habilitado):** extensão que registra estatísticas de
+  execução das queries (tempo total/médio, chamadas, linhas). Requer carregar a
+  biblioteca no Postgres (`shared_preload_libraries = 'pg_stat_statements'`) e
+  `CREATE EXTENSION pg_stat_statements`. É a base para identificar queries lentas.
+  > Nota multi-tenant: as estatísticas são **por instância** (queries
+  > normalizadas/parametrizadas), não por tenant — mostram o "formato" da query
+  > agregando todos os tenants.
+- **PgHero (possibilidade):** dashboard de monitoramento para Postgres que lê do
+  `pg_stat_statements` (queries lentas, índices ausentes, conexões, locks). Fica
+  como **opção em avaliação** para o monitoramento do banco — pode rodar junto na
+  VPS. Decisão ainda **em aberto**.
+
 ## A validar (spike)
 
 - [ ] Comportamento de **prepared statements** do PDO/Laravel sob PgBouncer
       `transaction` (ajustar configuração de conexão se necessário).
 - [ ] Confirmar o **modo de pooling** definitivo por teste de carga.
+- [ ] **Wiring de RLS:** definir o `app.tenant_id` via `SET LOCAL` por transação
+      a cada inicialização de tenancy do `stancl/tenancy`, garantindo que funcione
+      sob transaction pooling (sem vazamento entre tenants).
+- [ ] Role/permissões do banco para RLS (sem `BYPASSRLS`, `FORCE ROW LEVEL
+      SECURITY` nas tabelas de tenant).
 - [ ] Compatibilidade da versão do `stancl/tenancy` com a versão alvo do Laravel
       (ver [ADR-001](./ADR-001-single-database-multitenancy.md)).
 

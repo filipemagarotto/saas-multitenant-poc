@@ -1,5 +1,5 @@
 ---
-title: "Feature: Gestão de Tenants e Licenças (Control Plane)"
+title: "Feature: Gestão de Tenants e Licenças (Painel)"
 status: draft
 owner: filipe-magarotto
 last_updated: 2026-06-22
@@ -7,17 +7,18 @@ ai_friendly: true
 tags: [feature, spec, control-plane, licensing, multi-tenancy, target]
 ---
 
-# Feature: Gestão de Tenants e Licenças (Control Plane)
+# Feature: Gestão de Tenants e Licenças (Painel)
 
 > **Status: draft / o que QUEREMOS na prática.** Ainda não implementado. Faz parte
 > da [arquitetura do sistema](../../ARCHITECTURE.md).
 
 ## Objetivo
 
-Ter um **sistema de controle próprio** (control plane) para gerenciar o ciclo de
-vida dos tenants e suas **licenças**. Ações como "adicionar/renovar a licença de
-um tenant específico" ou "suspender um tenant" são feitas por esse sistema — nunca
-direto no banco.
+Ter o **Painel** — um **sistema próprio da empresa**, separado do app dos tenants e
+**hospedado na VPS contratada** — para gerenciar o ciclo de vida dos tenants e suas
+**licenças**, e **monitorar os tenants de fora**. Ações como "criar um tenant",
+"adicionar/renovar a licença de um tenant" ou "suspender um tenant" são feitas pelo
+Painel — nunca direto no banco.
 
 ## Usuários-alvo
 
@@ -32,25 +33,32 @@ direto no banco.
 - Criar e **provisionar** tenants (slug/subdomínio, dados básicos).
 - Gerenciar **licenças**: plano contratado, validade, limites e funcionalidades.
 - **Ativar / suspender / reativar** tenants.
+- **Monitorar os tenants de fora** (status, uso, saúde).
 - O app multi-tenant **respeita** a licença do tenant atual (enforcement).
 
 ### Não inclui (out of scope desta spec)
 - Billing/cobrança automática e gateway de pagamento (pode virar feature própria).
 - Self-service de cadastro de tenant pelo cliente final.
-- Definição final de **onde o control plane vive** — ver "Decisões em aberto".
+
+## Decisões fixadas
+
+- O Painel é um **sistema próprio separado**, em **repositório próprio** (não um
+  módulo do app dos tenants; fora do escopo deste repo — aqui é só documentação).
+- Roda na **mesma VPS contratada**, porém em **porta própria** e com **banco de
+  dados próprio** (separado do banco compartilhado dos tenants).
+- **Conversa com o app** dos tenants (mesma VPS) para provisionar e informar
+  licença.
 
 ## Decisões em aberto
 
-- [ ] **Onde vive o control plane:** app central separado (com seu próprio repo/DB)
-      **ou** módulo dentro do app multi-tenant. (No questionário do spike ficou
-      como *indefinido*.)
-- [ ] Como o app dos tenants lê a licença: tabela compartilhada no banco único,
-      API do control plane, ou cache sincronizado.
+- [ ] Como o app dos tenants obtém tenant/licença do Painel: **API** do Painel ou
+      **cache sincronizado** (uma tabela compartilhada está descartada — os bancos
+      são separados), incluindo como a lista de tenants é sincronizada.
 - [ ] Modelo de planos (fixos vs. features configuráveis por tenant).
 
 ## Comportamento esperado (fluxo: adicionar licença a um tenant)
 
-1. Operador acessa o sistema de controle e seleciona o **tenant**.
+1. Operador acessa o Painel e seleciona o **tenant**.
 2. Define a **licença**: plano, data de validade, limites (ex.: nº de usuários) e
    funcionalidades liberadas.
 3. Sistema persiste a licença vinculada ao `tenant_id`.
@@ -67,9 +75,13 @@ direto no banco.
 | Licença expirada | App bloqueia acesso às áreas restritas; aviso ao usuário |
 | Tenant suspenso | Bloqueio total exceto tela de aviso |
 | Funcionalidade fora do plano | 403 / recurso oculto conforme as features da licença |
-| Tenant sem licença (recém-criado) | Estado "pendente" até o control plane definir a licença |
+| Tenant sem licença (recém-criado) | Estado "pendente" até o Painel definir a licença |
 
-## Modelo de dados (proposto — PostgreSQL; sujeito às decisões em aberto)
+## Modelo de dados (proposto — no banco PRÓPRIO do Painel, PostgreSQL)
+
+> Estas tabelas vivem no **banco do Painel** (separado do banco dos tenants). Como
+> os bancos são separados, o app dos tenants lê a licença via integração (API/
+> cache), não por FK direta entre os bancos — ver "Decisões em aberto".
 
 ```sql
 CREATE TABLE plans (
@@ -92,14 +104,10 @@ CREATE TABLE licenses (
 );
 ```
 
-> Onde essas tabelas vivem depende de onde o control plane viver (decisão em
-> aberto): no mesmo banco compartilhado do app ou num banco próprio do control
-> plane consultado via API.
-
 ## Métricas de sucesso
 
-- [ ] 100% das ativações/renovações de tenant feitas pelo control plane (zero
-      edição manual no banco).
+- [ ] 100% das ativações/renovações de tenant feitas pelo Painel (zero edição
+      manual no banco).
 - [ ] App multi-tenant bloqueia corretamente tenants com licença expirada/suspensa.
 
 ## Decisões técnicas
@@ -108,5 +116,6 @@ CREATE TABLE licenses (
   [ADR-001](../architecture/adr/ADR-001-single-database-multitenancy.md)).
 - Enforcement de licença como **middleware**, complementar ao middleware de
   identificação de tenant do `stancl/tenancy`.
-- Se o control plane for um app separado, definir o contrato de integração
-  (tabela compartilhada vs API) antes de implementar — ver "Decisões em aberto".
+- O Painel é um app **separado** (repo próprio), na VPS contratada, com banco
+  próprio; definir o contrato de integração (**API vs cache**) antes de
+  implementar — ver "Decisões em aberto".

@@ -38,7 +38,7 @@ tags: [conventions, standards, laravel, php]
   tenant.
 - Rotas: separar claramente **central** (não-tenant) de **tenant**
   (`{tenant}.dominio`).
-- Nunca acessar/alterar tenants ou licenças direto no banco — usar o control plane.
+- Nunca acessar/alterar tenants ou licenças direto no banco — usar o Painel.
 
 ## Banco de dados (PostgreSQL + PgBouncer)
 
@@ -49,6 +49,10 @@ tags: [conventions, standards, laravel, php]
   advisory locks de sessão) sem validar.
 - Toda query de dados de cliente deve passar pelo escopo de tenant (não rodar
   query "crua" que ignore o `tenant_id`).
+- **RLS:** toda tabela de tenant tem policy de Row-Level Security; o tenant atual
+  é definido com `SET LOCAL app.tenant_id` **dentro da transação** (compatível com
+  o transaction pooling). O role do app não pode ter `BYPASSRLS`. Ver
+  [ADR-002](../architecture/adr/ADR-002-postgres-pgbouncer.md).
 
 ## Testes
 
@@ -67,6 +71,8 @@ tags: [conventions, standards, laravel, php]
 
 - ❌ Query de dados de cliente sem o escopo de tenant.
 - ❌ Model de tenant sem o trait `BelongsToTenant`.
+- ❌ JWT sem o claim `tenant_id` validado contra o subdomínio (ver
+  [autenticação](../features/authentication.md)).
 - ❌ Secrets hardcoded — usar `.env` / gerenciador de segredos.
 - ❌ `SESSION_DOMAIN` no domínio raiz (vazaria sessão entre tenants).
 - ❌ Portar a implementação própria da POC (ver

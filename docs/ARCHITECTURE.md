@@ -20,36 +20,40 @@ Aplicação **Laravel** multi-tenant com **banco de dados compartilhado** (um ú
 banco, todos os tenants nas mesmas tabelas, separados pela coluna `tenant_id`). A
 tenancy é provida pelo pacote **`stancl/tenancy`** em **modo single-database**. O
 tenant é identificado pelo **subdomínio** da requisição. O banco é **PostgreSQL**,
-acessado através do pooler **PgBouncer**.
+acessado através do pooler **PgBouncer**, com **Row-Level Security (RLS)** como
+camada extra de isolamento no próprio banco.
 
-Um **sistema de controle próprio (control plane)** gerencia o ciclo de vida dos
-tenants e suas **licenças** (ver
-[feature](./docs/features/tenant-license-management.md)).
+O **Painel** (sistema próprio da nossa empresa) gerencia o ciclo de vida dos
+tenants e suas **licenças** — e permite **criar novos tenants e monitorá-los de
+fora** (ver [feature](./docs/features/tenant-license-management.md)). Ele roda na
+**mesma VPS contratada**, mas em **porta própria** e com **banco de dados próprio**
+(separado do banco dos tenants), conversando com o app. O Painel é um
+**repositório separado** — aqui apenas documentamos essa integração.
 
 ## Diagrama de componentes
 
 ```
-                         ┌───────────────────────────────┐
-   Sistema de Controle   │  Control plane (sistema NOSSO) │
-   (tenants + licenças)  │  cria/provisiona tenants e     │
-                         │  define/renova licenças        │
-                         └───────────────┬───────────────┘
-                                         │ (cria tenant, define licença)
-                                         ▼
-   Navegador                  ┌────────────────────────┐
- cliente.dominio  ──HTTPS───▶ │  App Laravel +          │
-                              │  stancl/tenancy         │
-                              │  (single-database)      │
-                              │  subdomínio → tenant    │
-                              │  licença → acesso       │
-                              └───────────┬────────────┘
-                                          │ SQL (pool)
-                                          ▼
-                              ┌────────────────────────┐      ┌─────────────────┐
-                              │     PgBouncer           │─────▶│  PostgreSQL     │
-                              │  (connection pooler)    │      │  banco único    │
-                              └────────────────────────┘      │  (tenant_id)    │
-                                                              └─────────────────┘
+   Painel (REPO SEPARADO)         ┌─────────────────────────────┐      ┌──────────────┐
+   mesma VPS · porta própria      │  Painel (porta própria)     │─────▶│  Banco do    │
+   ─ documentado aqui só p/       │  cria/provisiona tenants,   │      │  Painel      │
+     registro ─                   │  licenças, monitoramento    │      │  (próprio)   │
+                                  └──────────────┬──────────────┘      └──────────────┘
+                                                 │ conversa com o app (mesma VPS)
+                                                 ▼
+   Navegador                      ┌────────────────────────┐
+ cliente.dominio  ──HTTPS───────▶ │  App Laravel +          │
+                                  │  stancl/tenancy         │
+                                  │  (single-database)      │
+                                  │  subdomínio → tenant    │
+                                  │  licença → acesso       │
+                                  └───────────┬────────────┘
+                                              │ SQL (pool)
+                                              ▼
+                                  ┌────────────────────────┐      ┌─────────────────┐
+                                  │     PgBouncer           │─────▶│  PostgreSQL     │
+                                  │  (connection pooler)    │      │  banco único    │
+                                  └────────────────────────┘      │  (tenant_id)    │
+                                                                  └─────────────────┘
 ```
 
 ## Componentes principais
@@ -63,11 +67,19 @@ tenants e suas **licenças** (ver
   domínio central serve rotas não-tenant.
 - **Bootstrappers:** o pacote isola por tenant também **cache, filas (queues) e
   storage**, além das queries.
+- **Autenticação:** via **JWT** (stateless), com o `tenant_id` no token validado
+  contra o subdomínio — ver [autenticação](./docs/features/authentication.md).
 
 ### PostgreSQL (banco de dados)
-- **Banco único compartilhado** por todos os tenants. Isolamento **lógico** pela
-  coluna `tenant_id` (ver [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md)).
-- Escolha do Postgres e seus motivos: [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md).
+- **Banco único compartilhado** por todos os tenants. Isolamento por
+  `tenant_id` (ver [ADR-001](./docs/architecture/adr/ADR-001-single-database-multitenancy.md)).
+- **Row-Level Security (RLS):** políticas no banco filtram as linhas pelo tenant
+  atual (`SET LOCAL app.tenant_id` por transação). É uma camada **no banco**,
+  complementar ao escopo da aplicação — mesmo um bug de query não vaza dados de
+  outro tenant. Detalhes e interação com o PgBouncer:
+  [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md).
+- **Observabilidade:** `pg_stat_statements` habilitado para estatísticas de
+  queries; **PgHero** em avaliação como dashboard de monitoramento (ver ADR-002).
 
 ### PgBouncer (connection pooler)
 - Fica entre a aplicação e o Postgres, reutilizando conexões para suportar muitas
@@ -76,22 +88,33 @@ tenants e suas **licenças** (ver
   tenant), o pooling em **modo transaction** é viável — com as ressalvas de
   prepared statements documentadas no [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md).
 
-### Control plane (sistema de controle próprio)
+### Painel (control plane próprio)
+- **Sistema próprio da empresa**, em **repositório separado** — fora do escopo
+  deste repo, documentado aqui só para registrar a integração.
+- Roda na **mesma VPS contratada**, mas em **porta própria** e com **banco de
+  dados próprio** (separado do banco compartilhado dos tenants); conversa com o
+  app.
 - Gerencia tenants (criação/provisionamento) e **licenças** (plano, validade,
-  limites, funcionalidades). Onde ele vive (app separado vs módulo) é **decisão em
-  aberto** — ver [feature](./docs/features/tenant-license-management.md).
+  limites, funcionalidades), e **monitora os tenants de fora**.
+- Como o app dos tenants lê a licença (API do Painel ou cache; **não** via tabela
+  compartilhada, já que os bancos são separados) ainda é **decisão em aberto** —
+  ver [feature](./docs/features/tenant-license-management.md).
 
 ## Multi-tenancy — como o isolamento funciona
 
 1. **Identificação:** o middleware do `stancl/tenancy` lê o subdomínio e inicializa
    o tenant atual (ou retorna 404 se o subdomínio não corresponder a um tenant).
-2. **Isolamento de dados:** todo model com dados de cliente usa o trait
+2. **Isolamento na aplicação:** todo model com dados de cliente usa o trait
    `BelongsToTenant` do pacote → *global scope* filtra por `tenant_id` e o
    preenche automaticamente ao criar.
-3. **Autenticação por tenant:** o `User` também é escopado por tenant, então o
-   login só autentica usuários do tenant atual (ver
+3. **Isolamento no banco (RLS):** políticas de Row-Level Security garantem, no
+   próprio Postgres, que cada tenant só vê suas linhas — defesa em profundidade
+   caso uma query escape do escopo da aplicação.
+4. **Autenticação por tenant (JWT):** login via **JWT**; o token carrega o
+   `tenant_id` e é validado contra o subdomínio (um token de um tenant não vale em
+   outro). O `User` também é escopado por tenant (ver
    [autenticação](./docs/features/authentication.md)).
-4. **Licença:** um middleware verifica a licença do tenant atual antes de liberar
+5. **Licença:** um middleware verifica a licença do tenant atual antes de liberar
    as áreas restritas.
 
 ## Fluxo de uma requisição de tenant
@@ -100,7 +123,8 @@ tenants e suas **licenças** (ver
 2. O middleware do `stancl/tenancy` identifica `cliente` pelo subdomínio e
    inicializa a tenancy.
 3. Middleware de licença confere se o tenant está ativo/em dia.
-4. Middleware de autenticação garante usuário logado **deste** tenant.
+4. Middleware de autenticação valida o **JWT** (assinatura, expiração e
+   `tenant_id` == tenant atual) e resolve o usuário **deste** tenant.
 5. As queries dos models de cliente já vêm filtradas por `tenant_id`.
 
 ## Decisões de arquitetura (ADRs)
@@ -112,18 +136,23 @@ tenants e suas **licenças** (ver
 
 - ❌ Não consultar models com dados de tenant **sem** o trait `BelongsToTenant` —
   fura o isolamento.
-- ❌ Não definir `SESSION_DOMAIN` no domínio raiz (ex.: `.dominio`) — o cookie de
-  sessão deve ficar host-only para não trafegar entre subdomínios de tenants.
-- ❌ Não acessar/alterar tenants ou licenças direto no banco — usar o control plane.
+- ❌ Não emitir/aceitar JWT sem o claim de `tenant_id` ou sem validá-lo contra o
+  subdomínio — é o que impede um token de um tenant valer em outro.
+- ❌ Se usar sessão/cookies para algo, não definir `SESSION_DOMAIN` no domínio raiz
+  (`.dominio`) — manter host-only para não trafegar entre subdomínios. (A
+  autenticação em si é via JWT, stateless.)
+- ❌ Não acessar/alterar tenants ou licenças direto no banco — usar o Painel.
 - ❌ Não assumir **schema/banco por tenant** (multi-database): a decisão atual é
   **single-database**. Migrar para schema-per-tenant no futuro exige rever o modo
   de pooling do PgBouncer (ver ADR-002).
 
 ## Decisões em aberto
 
-- [ ] Onde vive o control plane (app central separado vs módulo).
+- [ ] Como o app dos tenants lê a licença do Painel (tabela compartilhada, API ou
+      cache).
 - [ ] Versão alvo de Laravel × compatibilidade do `stancl/tenancy` (validar).
-- [ ] Modo de pooling do PgBouncer (transaction vs session) confirmado por teste.
+- [ ] Modo de pooling do PgBouncer (transaction vs session) e wiring do RLS
+      (`SET LOCAL` por transação) confirmados por teste.
 
 ## Limitações e riscos
 

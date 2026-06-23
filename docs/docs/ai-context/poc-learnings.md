@@ -44,7 +44,7 @@ vem pronto do pacote.
 | Grupos de rota central vs `{tenant}.dominio` | Rotas central vs tenant via config do pacote |
 | `users.tenant_id` + login escopado | Mesmo padrão, com o trait do pacote no `User` |
 | (não cobria) cache/filas/storage por tenant | **Bootstrappers** do stancl isolam automaticamente |
-| MySQL | **PostgreSQL** + **PgBouncer** (ver ADR-002) |
+| MySQL | **PostgreSQL** + **PgBouncer** + **RLS** (ver ADR-002) |
 
 ## O que **não** trazer da POC
 

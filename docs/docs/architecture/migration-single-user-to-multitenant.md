@@ -12,16 +12,18 @@ tags: [architecture, roadmap, migration, multi-tenancy, target]
 > **O que QUEREMOS fazer**, não o que está feito. Plano para construir o "terceiro
 > sistema": o produto oficial **multi-tenant**.
 
-## Os três repositórios
+## Os repositórios
 
 | # | Repositório | Papel |
 |---|-------------|-------|
 | 1 | **POC** (este repo) | Provou o conceito de banco único + subdomínio (implementação própria). Fonte de aprendizado. |
 | 2 | **Sistema oficial atual** | Produto que já funciona hoje, porém **single-user** (um cliente). Fonte do domínio/negócio. |
 | 3 | **Sistema oficial multi-tenant** (alvo) | **Novo repo greenfield** que junta o domínio do (2) com a tenancy validada no (1), usando `stancl/tenancy`. |
+| 4 | **Painel** (control plane) | **Repo separado**: cria/gerencia tenants e licenças e monitora de fora. Mesma VPS, porta e banco próprios. Fora do escopo deste roadmap. |
 
-> Decisão fixada: o alvo é um **novo repositório greenfield** (não evoluir o repo
-> atual in-place). Ver [arquitetura do sistema](../../ARCHITECTURE.md).
+> Decisão fixada: o alvo (repo 3) é um **novo repositório greenfield** (não evoluir
+> o repo atual in-place). O **Painel** (repo 4) é construído à parte. Ver
+> [arquitetura do sistema](../../ARCHITECTURE.md).
 
 ## Princípio
 
@@ -37,12 +39,15 @@ produção a tenancy vem do `stancl/tenancy` (ver
       [known-issues](../ai-context/known-issues.md).
 - [ ] Validar PgBouncer (modo de pooling) + Postgres com o app (ver
       [ADR-002](./adr/ADR-002-postgres-pgbouncer.md)).
-- [ ] Decidir onde vive o control plane (ver
-      [gestão de tenants e licenças](../features/tenant-license-management.md)).
+- [ ] Definir a integração app × Painel (como o app lê a licença: tabela
+      compartilhada, API ou cache). Ver
+      [gestão de tenants e licenças](../features/tenant-license-management.md).
 
 ### Fase 1 — Esqueleto multi-tenant (novo repo)
 - [ ] Novo repo Laravel + `stancl/tenancy` (modo single-database).
 - [ ] PostgreSQL + PgBouncer configurados.
+- [ ] **RLS** habilitado: policies por tabela de tenant + `SET LOCAL app.tenant_id`
+      a cada inicialização de tenancy; role do app sem `BYPASSRLS`.
 - [ ] Identificação por subdomínio + domínio central configurados.
 - [ ] Tenant de exemplo subindo (smoke test de isolamento).
 
@@ -52,14 +57,18 @@ produção a tenancy vem do `stancl/tenancy` (ver
       cliente; adicionar `tenant_id` nas tabelas correspondentes.
 - [ ] Garantir que nenhuma query de dados de cliente roda sem o escopo de tenant.
 
-### Fase 3 — Autenticação por tenant
-- [ ] `users.tenant_id` + login isolado por tenant, com o trait do stancl. Ver
+### Fase 3 — Autenticação por tenant (JWT)
+- [ ] `users.tenant_id` + login via **JWT** isolado por tenant (token carrega o
+      `tenant_id`, validado contra o subdomínio). Ver
       [autenticação por tenant](../features/authentication.md).
 
-### Fase 4 — Control plane e licenças
-- [ ] Implementar gestão de tenants/licenças conforme a
+### Fase 4 — Painel (control plane) e licenças
+- [ ] **Painel** como sistema próprio **em repo separado** (fora deste roadmap),
+      na **mesma VPS** porém em **porta própria** e **banco próprio** (cria
+      tenants, gerencia licenças, monitora de fora). Ver
       [feature](../features/tenant-license-management.md).
-- [ ] Middleware de enforcement de licença no app dos tenants.
+- [ ] Integração app ↔ Painel (API/cache) + enforcement de licença via middleware
+      no app dos tenants.
 
 ### Fase 5 — Migração de dados (single-user → 1º tenant)
 - [ ] Criar o primeiro tenant correspondente ao cliente atual.
