@@ -42,6 +42,8 @@ tags: [domain, glossary]
 | **GlitchTip** | Software open source **self-hosted** de monitoramento de **erros/exceções** da aplicação (compatível com SDKs do Sentry). Distinto das trilhas de auditoria. |
 | **Audit log de negócio** | Trilha de **quem fez o quê** no produto (accountability). Tabela `audit_logs`, escopada por tenant. Ver [auditoria](./docs/features/auditing.md). |
 | **Log de segurança/acesso** | Trilha de **eventos de auth/autorização** (falhas de login, mudança de permissão) para detectar abuso/incidentes. Tabela `security_events`. Ver [auditoria](./docs/features/auditing.md). |
+| **Brand book / Design system** | Padrões de UI (botões, tipografia, espaçamento, layout) em **Tailwind**, para uma interface consistente. Ver [brand book](./docs/design/brand-book.md). |
+| **Design token** | Valor reutilizável de design (espaçamento, raio, cor) consumido pelos componentes. Cores de marca são tokens **custom por tenant**. |
 
 ## Contexto
 

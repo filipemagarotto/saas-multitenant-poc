@@ -22,6 +22,7 @@ tags: [known-issues, risks, open-decisions]
 | OD-006 | **Monitoramento do banco** | Adotar ou não o **PgHero** (lê do `pg_stat_statements`) — em avaliação (ver ADR-002) |
 | OD-007 | **JWT** | Biblioteca/guard, algoritmo de assinatura, estratégia de **refresh** e de **revogação** (ver [autenticação](../features/authentication.md)) |
 | OD-008 | **Auditoria** | Retenção, imutabilidade (append-only) e onde vive o log de segurança (app e/ou Painel) — ver [auditoria](../features/auditing.md) |
+| OD-009 | **UI / Design system** | Família tipográfica, biblioteca de componentes sobre o Tailwind, conjunto de ícones e injeção dos tokens de cor por tenant — ver [brand book](../design/brand-book.md) |
 
 > **Decidido:** o Painel (gestão de tenants/licenças) é um **sistema próprio em
 > repo separado**, na **mesma VPS contratada** porém em **porta própria** e

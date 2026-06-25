@@ -33,6 +33,7 @@ contratada) cria/gerencia tenants e **licenças** e os monitora de fora.
 | Banco de dados | PostgreSQL + PgBouncer + RLS | [ADR-002](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) |
 | Gestão de tenants/licenças | Painel próprio — repo separado, mesma VPS (porta/banco próprios) | [feature](./docs/features/tenant-license-management.md) |
 | Observabilidade / auditoria | GlitchTip (erros) + audit log de negócio + log de segurança | [auditoria](./docs/features/auditing.md) |
+| UI / Design | Brand book em Tailwind (cor é custom por tenant) | [brand book](./docs/design/brand-book.md) |
 
 ## Documentação
 
@@ -44,6 +45,8 @@ contratada) cria/gerencia tenants e **licenças** e os monitora de fora.
 | [docs/features/authentication.md](./docs/features/authentication.md) | Login isolado por tenant |
 | [docs/features/tenant-license-management.md](./docs/features/tenant-license-management.md) | Sistema de controle de tenants e licenças |
 | [docs/features/auditing.md](./docs/features/auditing.md) | Auditoria (negócio + segurança) e monitoramento de erros |
+| [docs/design/brand-book.md](./docs/design/brand-book.md) | Brand book / design system (Tailwind) |
+| [docs/design/persona-frontend-ux.md](./docs/design/persona-frontend-ux.md) | Persona de Front-end & UX |
 | [docs/architecture/adr/ADR-001-single-database-multitenancy.md](./docs/architecture/adr/ADR-001-single-database-multitenancy.md) | Decisão: stancl/tenancy, single-database, subdomínio |
 | [docs/architecture/adr/ADR-002-postgres-pgbouncer.md](./docs/architecture/adr/ADR-002-postgres-pgbouncer.md) | Decisão: PostgreSQL + PgBouncer |
 | [docs/architecture/migration-single-user-to-multitenant.md](./docs/architecture/migration-single-user-to-multitenant.md) | Roadmap: single-user → multi-tenant |

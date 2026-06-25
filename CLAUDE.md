@@ -16,6 +16,9 @@ e as convenções em [docs/docs/ai-context/conventions.md](docs/docs/ai-context/
   fora.
 - **Observabilidade:** **GlitchTip** (erros) + `pg_stat_statements`; auditoria em
   duas trilhas (negócio e segurança).
+- **UI:** **Tailwind**, seguindo o [brand book](docs/docs/design/brand-book.md)
+  (botões, tipografia, espaçamento, layout). **Cor é custom por tenant** (header,
+  destaque, background) — não fixar cor de marca nos componentes.
 
 ## Regras inegociáveis
 
@@ -28,6 +31,8 @@ e as convenções em [docs/docs/ai-context/conventions.md](docs/docs/ai-context/
   (compatível com transaction pooling); role do app **sem** `BYPASSRLS`.
 - Tenants e licenças são geridos **só pelo Painel** — nunca editar direto no banco.
 - O middleware de tenancy roda **antes** de autenticação e licença.
+- UI segue o **brand book** (Tailwind); cor de marca vem de **token do tenant**,
+  nunca hardcoded nos componentes.
 
 ## Documentação
 
@@ -38,5 +43,7 @@ e as convenções em [docs/docs/ai-context/conventions.md](docs/docs/ai-context/
   [auth (JWT)](docs/docs/features/authentication.md) ·
   [tenants/licenças (Painel)](docs/docs/features/tenant-license-management.md) ·
   [auditoria](docs/docs/features/auditing.md)
+- Design: [brand book](docs/docs/design/brand-book.md) ·
+  [persona front-end/UX](docs/docs/design/persona-frontend-ux.md)
 - Convenções: [conventions](docs/docs/ai-context/conventions.md) ·
   Decisões em aberto/riscos: [known-issues](docs/docs/ai-context/known-issues.md)
